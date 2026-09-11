@@ -1,0 +1,20 @@
+# данные и секреты — никогда в репозиторий
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+backups/
+secrets.json
+config.local.*
+.env
+
+# сборка
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.dSYM/
+
+# macOS
+.DS_Store
