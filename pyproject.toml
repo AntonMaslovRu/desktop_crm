@@ -1,0 +1,27 @@
+[project]
+name = "envo-desk"
+version = "0.1.0"
+description = "Envo Desk — CRM и мониторинг продаж билетов"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.6",
+    "argon2-cffi>=23.1",
+    "apscheduler>=3.10",
+    "httpx>=0.28",
+    "selectolax>=0.3.21",
+    "openpyxl>=3.1",
+    "msal>=1.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "ruff>=0.8"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
