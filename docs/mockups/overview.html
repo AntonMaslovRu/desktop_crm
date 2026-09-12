@@ -150,15 +150,14 @@ tr:last-child td{border-bottom:0}
 .prow:first-child{border-top:0}
 .prow .nm{font-size:12.5px; font-weight:500; min-width:0}
 .prow .nm small{display:block; font-weight:400; font-size:10.5px; color:var(--ink-3)}
-.prow .nm small.src{display:flex; margin-top:2px}
 .prow .n{font-family:var(--mono); font-size:11.5px; color:var(--ink-2); font-variant-numeric:tabular-nums}
 .prow .n b{color:var(--ink); font-weight:500}
 .prow .n em{font-style:normal; display:block; font-size:10px; color:var(--ink-3); font-family:var(--ui); letter-spacing:.03em}
 .up{color:var(--crit-ink)!important} .down{color:var(--good-ink)!important}
 .prow .rec{font-size:11.5px; color:var(--ink-3)}
 .prow .rec b{color:var(--ink); font-weight:600; display:block; font-size:12.5px}
-.src{align-items:center; gap:4px; font-size:10px; letter-spacing:.03em; color:var(--ink-3)}
-.src i{width:5px; height:5px; border-radius:50%; background:var(--good); display:block; flex:none}
+.src{font-size:10px; letter-spacing:.03em; color:var(--ink-3)}
+.src i{display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--good); margin-right:4px; vertical-align:middle}
 .src.page i{background:var(--warn)} .src.hand i{background:var(--serious)}
 
 /* правый столбец */
@@ -501,7 +500,7 @@ function prices(){
   el('ratenote').textContent='курс ЦБ AED 22,97 + 1 ₽ = 23,97 · обновлён в 09:05 · сборы продавца 10%';
   el('prices').innerHTML=PRICES.map(r=>`
     <div class="prow">
-      <div class="nm">${r.nm}<small>${r.cat}</small><small class="src ${r.src}"><i></i>${r.srct} · ${r.ago}</small></div>
+      <div class="nm">${r.nm}<small>${r.cat} · <span class="src ${r.src}"><i></i>${r.srct} · ${r.ago}</span></small></div>
       <div class="n"><b>${r.now}</b><em class="${r.dir}">${r.dir?'было '+r.was+' · '+r.d:r.d}</em></div>
       <div class="n"><b class="${r.dir}">${r.cn}</b><em>закупка ₽${r.dir?' · было '+r.cw:''}</em></div>
       <div class="rec"><b>${r.rec}</b>${r.recs}</div>
