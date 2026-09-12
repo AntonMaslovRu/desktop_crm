@@ -1,0 +1,566 @@
+<title>Обзор Envo Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#EDEFEA; --win:#FBFCFA; --side:#F1F3EE; --surface:#FFFFFF; --inset:#F4F6F1;
+  --ink:#16211E; --ink-2:#53615C; --ink-3:#818F89;
+  --rule:#DCE0D8; --rule-soft:#E8EBE4;
+  --accent:#0F5C52; --accent-ink:#0B4A42; --accent-soft:#E0EBE7;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --good-ink:#07750a; --warn-ink:#8a6304; --crit-ink:#b02f2f;
+  --grid:#E6E9E1; --axis:#CDD2C8;
+  --shadow:0 1px 2px rgba(22,33,30,.06), 0 20px 50px -24px rgba(22,33,30,.28);
+  --ui:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#090D0C; --win:#121A18; --side:#0F1614; --surface:#18211E; --inset:#131B19;
+  --ink:#E7EDE8; --ink-2:#A2AFAA; --ink-3:#84918B;
+  --rule:#26322F; --rule-soft:#1E2926;
+  --accent:#5FBFAB; --accent-ink:#8AD3C2; --accent-soft:#16312C;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --good-ink:#5ec45e; --warn-ink:#e0ae3c; --crit-ink:#e57676;
+  --grid:#202B28; --axis:#2E3B37;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 24px 60px -28px rgba(0,0,0,.85);
+}}
+:root[data-theme="dark"]{
+  --paper:#090D0C; --win:#121A18; --side:#0F1614; --surface:#18211E; --inset:#131B19;
+  --ink:#E7EDE8; --ink-2:#A2AFAA; --ink-3:#84918B;
+  --rule:#26322F; --rule-soft:#1E2926;
+  --accent:#5FBFAB; --accent-ink:#8AD3C2; --accent-soft:#16312C;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --good-ink:#5ec45e; --warn-ink:#e0ae3c; --crit-ink:#e57676;
+  --grid:#202B28; --axis:#2E3B37;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 24px 60px -28px rgba(0,0,0,.85);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--ui); font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased}
+.page{max-width:1220px; margin:0 auto; padding-inline:16px; padding-block:22px 30px}
+.mocknote{display:flex; flex-wrap:wrap; gap:6px 12px; align-items:baseline; font-size:12px; color:var(--ink-3); margin:0 0 12px; font-family:var(--mono)}
+.mocknote b{color:var(--ink-2); font-weight:500}
+
+/* окно приложения */
+.win{border:1px solid var(--rule); border-radius:10px; overflow:hidden; background:var(--win); box-shadow:var(--shadow)}
+.titlebar{display:flex; align-items:center; gap:12px; padding:9px 14px; background:var(--side); border-bottom:1px solid var(--rule)}
+.dots{display:flex; gap:7px; flex:none}
+.dots i{width:11px; height:11px; border-radius:50%; background:var(--rule); display:block}
+.titlebar .name{font-weight:600; font-size:13px; letter-spacing:-.01em}
+.titlebar .sep{color:var(--ink-3); font-size:13px}
+.titlebar .now{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-3); white-space:nowrap}
+.body{display:grid; grid-template-columns:186px 1fr}
+
+/* сайдбар */
+.side{background:var(--side); border-right:1px solid var(--rule); padding:12px 10px; display:flex; flex-direction:column; gap:2px}
+.side .grp{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); padding:12px 8px 4px}
+.nav{display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:6px; color:var(--ink-2); font-size:13.5px; cursor:default}
+.nav.on{background:var(--accent-soft); color:var(--ink); font-weight:600}
+.nav .cnt{margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--ink-3); background:var(--surface); border:1px solid var(--rule); border-radius:20px; padding:0 6px}
+.nav .dot{width:6px; height:6px; border-radius:50%; flex:none; background:var(--crit)}
+.side .foot{margin-top:auto; border-top:1px solid var(--rule); padding:10px 8px 2px; font-family:var(--mono); font-size:10.5px; color:var(--ink-3); display:grid; gap:4px}
+.side .foot .ok{color:var(--good-ink)}
+
+/* основная область */
+.main{padding:16px 18px 20px; min-width:0}
+.toolbar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:16px}
+h1{font-size:19px; font-weight:600; letter-spacing:-.02em; margin:0}
+.seg{display:flex; border:1px solid var(--rule); border-radius:7px; overflow:hidden; margin-left:auto; background:var(--surface)}
+.seg button{font-family:var(--ui); font-size:12.5px; color:var(--ink-2); background:none; border:0; border-right:1px solid var(--rule); padding:5px 11px; cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--ink); font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.cols{display:grid; grid-template-columns:minmax(0,1fr) 268px; gap:16px; align-items:start}
+.stack{display:grid; gap:14px; min-width:0}
+
+/* плитки показателей */
+.kpis{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px}
+.kpi{background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:11px 12px 8px; min-width:0}
+.kpi .lab{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.kpi .val{font-size:21px; font-weight:600; letter-spacing:-.02em; margin-top:4px; white-space:nowrap}
+.kpi .sub{font-size:11.5px; color:var(--ink-2); margin-top:1px; min-height:16px}
+.kpi .sub em{font-style:normal; color:var(--ink-3)}
+.kpi svg{display:block; width:100%; height:26px; margin-top:6px; overflow:visible}
+
+/* карточки */
+.card{background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:12px 14px 14px; min-width:0}
+.chead{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:baseline; margin-bottom:10px}
+h2{font-size:13.5px; font-weight:600; margin:0; letter-spacing:-.005em}
+.chead .hint{font-size:11.5px; color:var(--ink-3)}
+.chead .right{margin-left:auto; display:flex; gap:10px; align-items:center}
+.legend{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:11.5px; color:var(--ink-2)}
+.legend span{display:inline-flex; align-items:center; gap:5px}
+.legend i{width:9px; height:9px; border-radius:2px; display:block}
+.lnk{font-size:11.5px; color:var(--accent-ink); background:none; border:0; padding:0; cursor:pointer; font-family:var(--ui); text-decoration:underline; text-underline-offset:2px}
+.chartwrap{position:relative}
+.chartwrap svg{display:block; width:100%; height:auto}
+.tip{position:absolute; pointer-events:none; opacity:0; transform:translate(-50%,-100%); background:var(--ink); color:var(--paper); border-radius:6px; padding:6px 9px; font-size:11.5px; line-height:1.4; white-space:nowrap; z-index:5; transition:opacity .08s}
+.tip b{font-weight:600}
+.tip .r{font-family:var(--mono); font-size:11px}
+
+/* таблица под графиком */
+.tblwrap{overflow-x:auto; margin-top:10px; border:1px solid var(--rule); border-radius:6px}
+table{border-collapse:collapse; width:100%; min-width:420px; font-size:12.5px}
+th,td{padding:6px 10px; text-align:right; border-bottom:1px solid var(--rule-soft); font-variant-numeric:tabular-nums; color:var(--ink-2); white-space:nowrap}
+th{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); background:var(--inset); font-weight:600}
+th:first-child,td:first-child{text-align:left; color:var(--ink); font-family:var(--mono)}
+tr:last-child td{border-bottom:0}
+
+/* топ события */
+.evrow{display:grid; grid-template-columns:minmax(0,1.6fr) auto auto auto; gap:6px 14px; align-items:baseline; padding:8px 0; border-top:1px solid var(--rule-soft)}
+.evrow:first-of-type{border-top:0}
+.evrow .nm{font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.evrow .nm small{display:block; font-weight:400; font-size:11.5px; color:var(--ink-3)}
+.evrow .m{font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; text-align:right}
+.evrow .m b{display:block; font-size:13px; color:var(--ink); font-weight:500}
+.evrow .m em{font-style:normal; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); font-family:var(--ui)}
+
+/* успеваем распродать */
+.bullets{display:grid; gap:2px}
+.brow{display:grid; grid-template-columns:minmax(100px,160px) minmax(90px,1fr) 104px 118px; gap:6px 14px; align-items:center; padding:8px 0; border-top:1px solid var(--rule-soft)}
+.brow:first-child{border-top:0}
+.brow .nm{font-size:12.5px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.brow .nm small{display:block; font-weight:400; font-size:10.5px; color:var(--ink-3); font-family:var(--mono)}
+.bar{position:relative; height:12px; background:var(--inset); border-radius:3px}
+.bar .fill{position:absolute; inset:0 auto 0 0; background:var(--s1); border-radius:3px; min-width:3px}
+.bar .tick{position:absolute; top:-5px; bottom:-5px; width:3px; margin-left:-1.5px; background:var(--ink); border-radius:2px}
+.pcts{font-family:var(--mono); font-size:11.5px; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap}
+.pcts b{color:var(--ink); font-weight:500}
+.st{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:500; white-space:nowrap}
+.st svg{width:13px; height:13px; flex:none}
+.st.ahead{color:var(--good-ink)} .st.pace{color:var(--ink-2)} .st.late{color:var(--crit-ink)}
+
+/* новости */
+.news{margin-bottom:16px}
+.nrow{display:grid; grid-template-columns:96px minmax(0,1fr) auto auto; gap:6px 14px; align-items:baseline; padding:8px 0; border-top:1px solid var(--rule-soft)}
+.nrow:first-child{border-top:0}
+.tag{display:inline-block; font-size:10px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--rule); border-radius:3px; padding:1px 5px; color:var(--ink-2); white-space:nowrap}
+.tag.tour{border-color:var(--s1); color:var(--s1)}
+.tag.sale{border-color:var(--s3); color:var(--s3)}
+.tag.out{border-color:var(--good); color:var(--good-ink)}
+.tag.move{border-color:var(--crit); color:var(--crit-ink)}
+.nrow .ttl{font-size:13.5px; font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis}
+.nrow .ttl small{display:block; font-weight:400; font-size:11.5px; color:var(--ink-3)}
+.nrow .act{font-size:11.5px; color:var(--accent-ink); white-space:nowrap; text-decoration:underline; text-underline-offset:2px}
+.nrow .rel{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); border-left:2px solid var(--accent); padding-left:7px; white-space:nowrap}
+
+/* розничные цены */
+.prow{display:grid; grid-template-columns:minmax(100px,1.1fr) minmax(88px,.8fr) minmax(92px,.8fr) minmax(0,1.3fr); gap:4px 14px; align-items:start; padding:9px 0; border-top:1px solid var(--rule-soft)}
+.prow:first-child{border-top:0}
+.prow .nm{font-size:12.5px; font-weight:500; min-width:0}
+.prow .nm small{display:block; font-weight:400; font-size:10.5px; color:var(--ink-3)}
+.prow .nm small.src{display:flex; margin-top:2px}
+.prow .n{font-family:var(--mono); font-size:11.5px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.prow .n b{color:var(--ink); font-weight:500}
+.prow .n em{font-style:normal; display:block; font-size:10px; color:var(--ink-3); font-family:var(--ui); letter-spacing:.03em}
+.up{color:var(--crit-ink)!important} .down{color:var(--good-ink)!important}
+.prow .rec{font-size:11.5px; color:var(--ink-3)}
+.prow .rec b{color:var(--ink); font-weight:600; display:block; font-size:12.5px}
+.src{align-items:center; gap:4px; font-size:10px; letter-spacing:.03em; color:var(--ink-3)}
+.src i{width:5px; height:5px; border-radius:50%; background:var(--good); display:block; flex:none}
+.src.page i{background:var(--warn)} .src.hand i{background:var(--serious)}
+
+/* правый столбец */
+.att{display:grid}
+.att .row{display:grid; grid-template-columns:16px minmax(0,1fr); gap:9px; padding:9px 0; border-top:1px solid var(--rule-soft); align-items:start}
+.att .row:first-of-type{border-top:0}
+.att .row svg{width:15px; height:15px; margin-top:1px}
+.att .txt{font-size:12.5px; color:var(--ink-2); line-height:1.35}
+.att .txt b{display:block; color:var(--ink); font-weight:600; font-size:13px}
+.feed{display:grid}
+.fitem{display:grid; grid-template-columns:auto minmax(0,1fr); gap:4px 10px; padding:8px 0; border-top:1px solid var(--rule-soft)}
+.fitem:first-of-type{border-top:0}
+.fitem .t{font-family:var(--mono); font-size:11px; color:var(--ink-3); padding-top:1px}
+.fitem .ev{font-size:12.5px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.fitem .meta{grid-column:2; font-size:11.5px; color:var(--ink-3); display:flex; flex-wrap:wrap; gap:2px 8px}
+.fitem .meta .p{font-family:var(--mono); color:var(--ink-2); font-variant-numeric:tabular-nums}
+.fitem.ret .ev{color:var(--crit-ink)}
+.tagret{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--crit-ink); border:1px solid var(--crit); border-radius:3px; padding:0 4px}
+
+@media (max-width:880px){
+  .body{grid-template-columns:1fr}
+  .side{flex-direction:row; flex-wrap:wrap; border-right:0; border-bottom:1px solid var(--rule); gap:4px; align-items:center}
+  .side .grp,.side .foot{display:none}
+  .nav{padding:5px 8px; font-size:12.5px}
+  .cols{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .brow{grid-template-columns:minmax(80px,1fr) minmax(0,1.4fr); gap:8px}
+  .brow .st{grid-column:2; justify-self:start}
+  .nrow{grid-template-columns:auto minmax(0,1fr); gap:4px 10px}
+  .nrow .act,.nrow .rel{grid-column:2}
+  .nrow .rel{border-left:0; padding-left:0}
+  .prow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .prow .rec{grid-column:1/-1}
+}
+@media (max-width:560px){ .titlebar .now{display:none} }
+@media (max-width:420px){
+  .page{padding-inline:8px}
+  .main{padding:12px 12px 16px}
+  .kpi .val{font-size:18px}
+  .evrow{grid-template-columns:minmax(0,1fr) auto auto}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="page">
+  <p class="mocknote"><b>Макет · Envo Desk → Обзор.</b> Цифры примерные, для проверки композиции — живых данных из CRM здесь нет. Переключатель периода, подсказки на графике и таблица под ним работают.</p>
+
+  <div class="win">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="name">Envo Desk</span><span class="sep">— Обзор</span>
+      <span class="now">последний прогон 12.09, 14:47 · Дубай</span>
+    </div>
+
+    <div class="body">
+      <aside class="side">
+        <div class="nav on">Обзор</div>
+        <div class="grp">Работа</div>
+        <div class="nav">Продажи<span class="cnt">214</span></div>
+        <div class="nav">Письма<span class="cnt">3</span></div>
+        <div class="nav">Корзины<span class="cnt">2</span></div>
+        <div class="grp">Рынок</div>
+        <div class="nav">Новости<span class="cnt">12</span></div>
+        <div class="nav">Розничные цены<span class="dot" style="background:var(--warn)"></span></div>
+        <div class="grp">Каталог</div>
+        <div class="nav">События<span class="cnt">4</span></div>
+        <div class="nav">Лестницы цен<span class="dot"></span></div>
+        <div class="grp">Деньги</div>
+        <div class="nav">Закупка и остатки</div>
+        <div class="nav">Калькулятор цены</div>
+        <div class="grp">Система</div>
+        <div class="nav">Задачи и прогоны</div>
+        <div class="nav">Настройки</div>
+        <div class="foot">
+          <span class="ok">● все задачи живы</span>
+          <span>продажи 10 мин · письма 2 мин</span>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="toolbar">
+          <h1>Обзор</h1>
+          <div class="seg" role="group" aria-label="Период">
+            <button id="p1" data-days="1" aria-pressed="false">Сегодня</button>
+            <button id="p7" data-days="7" aria-pressed="false">7 дней</button>
+            <button id="p30" data-days="30" aria-pressed="true">30 дней</button>
+          </div>
+        </div>
+
+        <section class="card news">
+          <div class="chead">
+            <h2>Новости рынка</h2>
+            <span class="hint">12 за сутки · Bandsintown, Ticketmaster, площадки региона</span>
+            <div class="right"><button class="lnk">все новости</button></div>
+          </div>
+          <div id="news"></div>
+        </section>
+
+        <div class="cols">
+          <div class="stack">
+            <div class="kpis" id="kpis"></div>
+
+            <section class="card">
+              <div class="chead">
+                <h2>Выручка по дням</h2>
+                <span class="hint" id="chint">30 дней · стопкой по событиям</span>
+                <div class="right">
+                  <div class="legend" id="legend"></div>
+                  <button class="lnk" id="tbtn" aria-expanded="false">таблица</button>
+                </div>
+              </div>
+              <div class="chartwrap">
+                <svg id="bars" viewBox="0 0 700 190" role="img" aria-label="Выручка по дням за выбранный период, столбики разложены по событиям"></svg>
+                <div class="tip" id="tip"></div>
+              </div>
+              <div class="tblwrap" id="tbl" hidden></div>
+            </section>
+
+            <section class="card">
+              <div class="chead">
+                <h2>Розничные цены у поставщиков</h2>
+                <span class="hint" id="ratenote"></span>
+              </div>
+              <div id="prices"></div>
+            </section>
+
+            <section class="card">
+              <div class="chead">
+                <h2>Успеваем распродать</h2>
+                <span class="hint">полоса — продано остатка, метка — прошло времени до события</span>
+              </div>
+              <div class="bullets" id="bullets"></div>
+            </section>
+          </div>
+
+          <div class="stack">
+            <section class="card">
+              <div class="chead"><h2>Требует внимания</h2></div>
+              <div class="att" id="att"></div>
+            </section>
+            <section class="card">
+              <div class="chead"><h2>Последние продажи</h2></div>
+              <div class="feed" id="feed"></div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- примерные данные ---------- */
+const SERIES = [
+  {key:'ufc',   name:'UFC 333',      price:94500, cost:48970, color:'var(--s1)'},
+  {key:'dubai', name:'Дубай · Arena',price:38900, cost:16270, color:'var(--s2)'},
+  {key:'other', name:'прочее',       price:26400, cost:12800, color:'var(--s3)'},
+];
+// [день, ufc, dubai, other] — 30 дней, последний это «сегодня»
+const DAYS = [
+  ['14.08',1,1,1],['15.08',0,2,1],['16.08',1,0,2],['17.08',0,1,1],['18.08',2,1,0],
+  ['19.08',1,2,2],['20.08',0,0,1],['21.08',1,1,2],['22.08',0,2,1],['23.08',2,0,0],
+  ['24.08',1,1,3],['25.08',0,1,1],['26.08',1,2,0],['27.08',0,0,2],['28.08',1,1,1],
+  ['29.08',2,2,1],['30.08',0,1,0],['31.08',1,0,2],['01.09',0,2,2],['02.09',1,1,1],
+  ['03.09',2,0,1],['04.09',0,1,3],['05.09',1,2,1],['06.09',0,0,0],['07.09',1,1,2],
+  ['08.09',2,2,0],['09.09',1,0,1],['10.09',0,1,2],['11.09',2,2,1],['12.09',1,1,2],
+];
+const EVENTS = [
+  {nm:'UFC 333',       venue:'Etihad Arena, Абу-Даби', date:'24.10', left:24, bought:33, sold7:5,  rev7:472500, elapsed:0.19},
+  {nm:'Дубай · Arena', venue:'Coca-Cola Arena, Дубай', date:'03.10', left:5,  bought:40, sold7:7,  rev7:272300, elapsed:0.68},
+  {nm:'Стамбул · финал',venue:'Atatürk Olimpiyat',     date:'20.09', left:14, bought:25, sold7:3,  rev7:96600,  elapsed:0.82},
+  {nm:'Гран-при',      venue:'Yas Marina, Абу-Даби',   date:'06.12', left:14, bought:20, sold7:1,  rev7:41200,  elapsed:0.31},
+];
+const ATT = [
+  {icon:'crit', t:'Прогон продаж молчит 3 ч 12 мин', s:'последний успешный — 11:35, задача sales.sync'},
+  {icon:'warn', t:'Ступень 45% закрыта', s:'поставить 126 000 ₽ у нас, 140 000 ₽ на витрине'},
+  {icon:'mail', t:'3 письма ждут отправки', s:'вэлком: 2 заказа, догон: 1 корзина'},
+  {icon:'cart', t:'2 корзины готовы к догону', s:'на 148 900 ₽, выгода 14 890 ₽'},
+  {icon:'ret',  t:'Возврат: Стамбул, 2 билета', s:'сегодня 12:04, заказ 4418823'},
+];
+const FEED = [
+  {t:'14:22', ev:'UFC 333',        cat:'Категория 6', p:94500, who:'А. Петров'},
+  {t:'13:40', ev:'Дубай · Arena',  cat:'VIP',         p:38900, who:'М. Иванова'},
+  {t:'12:04', ev:'Стамбул · финал',cat:'Кат. 2 ×2',   p:57800, who:'И. Сафин', ret:true},
+  {t:'11:51', ev:'Дубай · Arena',  cat:'Танцпол',     p:38900, who:'Е. Гришина'},
+  {t:'10:18', ev:'UFC 333',        cat:'Категория 6', p:94500, who:'Д. Ковалёв'},
+  {t:'09:32', ev:'Гран-при',       cat:'Main Grand.', p:41200, who:'без имени'},
+  {t:'08:47', ev:'Дубай · Arena',  cat:'Фан-зона ×2', p:77800, who:'О. Ким'},
+  {t:'21:09', ev:'Стамбул · финал',cat:'Кат. 1',      p:48300, who:'Р. Гатин'},
+];
+const NEWS=[
+  {tag:'tour', k:'Тур',      t:'Coldplay · тур 2027, добавлен Абу-Даби',      s:'Etihad Park · 14.02.2027 · продажи с 19.09, 11:00 GST · Bandsintown', rel:'наш регион', act:'посчитать цену'},
+  {tag:'sale', k:'Старт',    t:'Tiësto · Coca-Cola Arena, Дубай',             s:'28.11.2026 · продажи завтра 10:00 · Platinumlist',                   rel:'высокий интерес в РФ', act:'посчитать цену'},
+  {tag:'out',  k:'Sold out', t:'Дубай · Arena: VIP распродан у организатора',  s:'осталось только у нас, 5 билетов · проверено 14 мин назад',          rel:'в работе', act:'поднять ступень'},
+  {tag:'move', k:'Перенос',  t:'Стамбул · финал перенесён на 27.09',          s:'официальный сайт площадки · затронуто 11 наших билетов',             rel:'в работе', act:'открыть событие'},
+];
+const PRICES=[
+  {nm:'UFC 333', cat:'Категория 6', was:'1 499 AED', now:'1 595 AED', d:'+6,4%', dir:'up',
+   cw:'39 520 ₽', cn:'42 050 ₽', rec:'Держим 126 000 ₽',
+   recs:'маржа ступени 45% → 42%', src:'page', srct:'страница', ago:'12 мин'},
+  {nm:'Дубай · Arena', cat:'VIP', was:'640 AED', now:'590 AED', d:'−7,8%', dir:'down',
+   cw:'16 870 ₽', cn:'15 550 ₽', rec:'Докупить 10 шт',
+   recs:'дешевле на 13 200 ₽ · маржа 40% → 44%', src:'api', srct:'api', ago:'8 мин'},
+  {nm:'Гран-при', cat:'Main Grandstand', was:'1 250 AED', now:'1 250 AED', d:'без изменений 12 дней', dir:'',
+   cw:'32 960 ₽', cn:'32 960 ₽', rec:'Без изменений', recs:'маржа ступени 40%', src:'api', srct:'api', ago:'41 мин'},
+  {nm:'Стамбул · финал', cat:'Категория 2', was:'—', now:'нет данных', d:'закрылась от робота', dir:'',
+   cw:'—', cn:'—', rec:'Проверить вручную',
+   recs:'открыть в браузере — цена считается сама', src:'hand', srct:'нужен человек', ago:'3 ч'},
+];
+const PLATFORM=0.06, TAX=0.12, XB=0.009;
+const NET = (1-PLATFORM)*(1-TAX)-XB;          // 0,8254 — доля, остающаяся до закупки
+const TAXSHARE = (1-PLATFORM)*TAX;            // 0,1128 — налоги от цены
+
+/* ---------- утилиты ---------- */
+const rub = n => Math.round(n).toLocaleString('ru-RU').replace(/,/g,' ');
+const money = n => n>=1e6 ? (n/1e6).toFixed(2).replace('.',',')+' млн ₽'
+                  : n>=1e3 ? rub(Math.round(n/1e3))+' тыс ₽' : rub(n)+' ₽';
+const pct = x => Math.round(x*100)+'%';
+const dec = (n,k=1) => n.toFixed(k).replace('.',',');
+const el = id => document.getElementById(id);
+const svgNS='http://www.w3.org/2000/svg';
+function mk(t,a={}){const n=document.createElementNS(svgNS,t);for(const k in a)n.setAttribute(k,a[k]);return n;}
+
+/* ---------- состояние ---------- */
+let period = 30;
+
+function slice(){ return DAYS.slice(DAYS.length-period); }
+function dayRev(d){ return SERIES.reduce((s,x,i)=>s+d[i+1]*x.price,0); }
+function dayTix(d){ return d[1]+d[2]+d[3]; }
+function dayCost(d){ return SERIES.reduce((s,x,i)=>s+d[i+1]*x.cost,0); }
+
+/* ---------- показатели ---------- */
+function sparkline(vals){
+  const w=200,h=26,max=Math.max(...vals,1),n=vals.length;
+  const x=i=>n===1?w/2:i*(w/(n-1)), y=v=>h-2-(v/max)*(h-6);
+  const svg=mk('svg',{viewBox:`0 0 ${w} ${h}`,preserveAspectRatio:'none','aria-hidden':'true'});
+  const pts=vals.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  svg.appendChild(mk('polygon',{points:`0,${h} ${pts} ${w},${h}`,fill:'var(--rule-soft)'}));
+  svg.appendChild(mk('polyline',{points:pts,fill:'none',stroke:'var(--ink-3)','stroke-width':1.5,'stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));
+  svg.appendChild(mk('circle',{cx:x(n-1),cy:y(vals[n-1]),r:2.6,fill:'var(--ink)'}));
+  return svg;
+}
+function kpis(){
+  const d=slice();
+  const rev=d.reduce((s,x)=>s+dayRev(x),0), tix=d.reduce((s,x)=>s+dayTix(x),0);
+  const tax=rev*TAXSHARE, cost=d.reduce((s,x)=>s+dayCost(x),0), profit=rev*NET-cost;
+  const per=period===1?'за сегодня':`за ${period} дней`;
+  const avg=(v,u)=>period===1?'':`<em>ср. ${v} ${u}/день</em>`;
+  const tiles=[
+    {lab:'Выручка', val:money(rev), sub:avg(money(rev/period),''), sp:d.map(dayRev)},
+    {lab:'Прибыль', val:money(profit), sub:`<em>${pct(profit/rev)} выручки · после сборов, налогов и закупки</em>`, sp:d.map(x=>dayRev(x)*NET-dayCost(x))},
+    {lab:'Налоги', val:money(tax), sub:'<em>к уплате в III кв: 1,19 млн ₽</em>', sp:d.map(x=>dayRev(x)*TAXSHARE)},
+    {lab:'Билетов', val:rub(tix)+' шт', sub:avg(dec(tix/period,1),'шт'), sp:d.map(dayTix)},
+  ];
+  const root=el('kpis'); root.textContent='';
+  tiles.forEach(t=>{
+    const c=document.createElement('div'); c.className='kpi';
+    c.innerHTML=`<div class="lab">${t.lab}</div><div class="val">${t.val}</div><div class="sub">${t.sub||`<em>${per}</em>`}</div>`;
+    c.appendChild(sparkline(t.sp)); root.appendChild(c);
+  });
+}
+
+/* ---------- график: выручка по дням, стопкой ---------- */
+function bars(){
+  const d=slice(), W=700,H=190, L=46,R=8,T=10,B=22;
+  const iw=W-L-R, ih=H-T-B;
+  const max=Math.max(...d.map(dayRev),1);
+  const step=Math.pow(10, Math.floor(Math.log10(max)));
+  const top=Math.ceil(max/step)*step;
+  const bw=Math.min(26, iw/d.length-(d.length>15?3:8));
+  const cx=i=>L+(i+0.5)*(iw/d.length);
+  const yy=v=>T+ih-(v/top)*ih;
+  const svg=el('bars'); svg.textContent='';
+  // сетка и ось
+  for(let k=0;k<=4;k++){
+    const v=top*k/4, y=yy(v);
+    svg.appendChild(mk('line',{x1:L,y1:y,x2:W-R,y2:y,stroke:k?'var(--grid)':'var(--axis)','stroke-width':1}));
+    const t=mk('text',{x:L-8,y:y+3.5,'text-anchor':'end',fill:'var(--ink-3)','font-size':10,'font-family':'var(--mono)'});
+    t.textContent=k?(v/1e3)+'к':'0'; svg.appendChild(t);
+  }
+  d.forEach((row,i)=>{
+    let acc=0;
+    SERIES.forEach((s,si)=>{
+      const v=row[si+1]*s.price; if(!v) return;
+      const y0=yy(acc), y1=yy(acc+v); acc+=v;
+      const g=mk('rect',{x:cx(i)-bw/2,y:y1,width:bw,height:Math.max(1,y0-y1-2),fill:s.color,rx:2});
+      svg.appendChild(g);
+    });
+    // зона наведения
+    const hit=mk('rect',{x:cx(i)-(iw/d.length)/2,y:T,width:iw/d.length,height:ih,fill:'transparent'});
+    hit.addEventListener('mouseenter',()=>showTip(i,cx(i)/W*100,yy(dayRev(row))/H*100));
+    hit.addEventListener('mouseleave',hideTip);
+    svg.appendChild(hit);
+    // подписи дней: каждый 5-й при 30 днях
+    const show = d.length<=7 || i%5===0 || i===d.length-1;
+    if(show){
+      const t=mk('text',{x:cx(i),y:H-6,'text-anchor':'middle',fill:'var(--ink-3)','font-size':10,'font-family':'var(--mono)'});
+      t.textContent=row[0]; svg.appendChild(t);
+    }
+  });
+  el('chint').textContent = (period===1?'сегодня':period+' дней')+' · стопкой по событиям';
+  const lg=el('legend'); lg.textContent='';
+  SERIES.forEach(s=>{
+    const w=document.createElement('span');
+    w.innerHTML=`<i style="background:${s.color}"></i>${s.name}`; lg.appendChild(w);
+  });
+}
+function showTip(i,xp,yp){
+  const row=slice()[i], tip=el('tip');
+  const parts=SERIES.map((s,si)=>row[si+1]?`${s.name}: ${row[si+1]} шт`:null).filter(Boolean);
+  tip.innerHTML=`<b>${row[0]}</b> · ${dayTix(row)} билетов<br><span class="r">${rub(dayRev(row))} ₽</span>`+
+                (parts.length?`<br>${parts.join(' · ')}`:'');
+  tip.style.left=xp+'%'; tip.style.top=`calc(${yp}% - 8px)`; tip.style.opacity=1;
+}
+function hideTip(){ el('tip').style.opacity=0; }
+
+/* ---------- таблица под графиком (страховка читаемости) ---------- */
+function table(){
+  const d=slice().slice().reverse();
+  const rows=d.map(r=>`<tr><td>${r[0]}</td><td>${r[1]+r[2]+r[3]}</td>`+
+    SERIES.map((s,si)=>`<td>${r[si+1]?rub(r[si+1]*s.price):'—'}</td>`).join('')+
+    `<td>${rub(dayRev(r))}</td></tr>`).join('');
+  el('tbl').innerHTML=`<table><thead><tr><th>День</th><th>Билетов</th>`+
+    SERIES.map(s=>`<th>${s.name}</th>`).join('')+`<th>Всего ₽</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ---------- новости ---------- */
+function news(){
+  el('news').innerHTML=NEWS.map(n=>`
+    <div class="nrow">
+      <span class="tag ${n.tag}">${n.k}</span>
+      <div class="ttl">${n.t}<small>${n.s}</small></div>
+      <span class="rel">${n.rel}</span>
+      <span class="act">${n.act}</span>
+    </div>`).join('');
+}
+
+/* ---------- розничные цены у поставщиков ---------- */
+function prices(){
+  el('ratenote').textContent='курс ЦБ AED 22,97 + 1 ₽ = 23,97 · обновлён в 09:05 · сборы продавца 10%';
+  el('prices').innerHTML=PRICES.map(r=>`
+    <div class="prow">
+      <div class="nm">${r.nm}<small>${r.cat}</small><small class="src ${r.src}"><i></i>${r.srct} · ${r.ago}</small></div>
+      <div class="n"><b>${r.now}</b><em class="${r.dir}">${r.dir?'было '+r.was+' · '+r.d:r.d}</em></div>
+      <div class="n"><b class="${r.dir}">${r.cn}</b><em>закупка ₽${r.dir?' · было '+r.cw:''}</em></div>
+      <div class="rec"><b>${r.rec}</b>${r.recs}</div>
+    </div>`).join('');
+}
+
+/* ---------- успеваем распродать ---------- */
+const ICON={
+  ahead:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5 L13.5 12 H2.5 Z" fill="currentColor"/></svg>',
+  pace:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="6.5" width="11" height="3" rx="1.5" fill="currentColor"/></svg>',
+  late:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.5 L2.5 4 H13.5 Z" fill="currentColor"/></svg>',
+  crit:'<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="var(--crit)"/><rect x="7.1" y="4" width="1.8" height="5" rx=".9" fill="var(--win)"/><rect x="7.1" y="10.2" width="1.8" height="1.8" rx=".9" fill="var(--win)"/></svg>',
+  warn:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 L15 14 H1 Z" fill="var(--warn)"/><rect x="7.2" y="5.6" width="1.6" height="4.4" rx=".8" fill="#3a2a00"/><rect x="7.2" y="11" width="1.6" height="1.6" rx=".8" fill="#3a2a00"/></svg>',
+  mail:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5" fill="none" stroke="var(--ink-2)" stroke-width="1.4"/><path d="M2 4.5 L8 9 L14 4.5" fill="none" stroke="var(--ink-2)" stroke-width="1.4"/></svg>',
+  cart:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 2.5h2l2 7.5h7" fill="none" stroke="var(--ink-2)" stroke-width="1.4" stroke-linecap="round"/><path d="M4.6 5h9l-1.2 4.2h-6.6" fill="none" stroke="var(--ink-2)" stroke-width="1.4"/><circle cx="6.5" cy="13" r="1.2" fill="var(--ink-2)"/><circle cx="11.5" cy="13" r="1.2" fill="var(--ink-2)"/></svg>',
+  ret:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-5-5h3" fill="none" stroke="var(--crit)" stroke-width="1.5"/><path d="M9 1 L12 3 L9 5.2" fill="none" stroke="var(--crit)" stroke-width="1.5"/></svg>',
+};
+function bullets(){
+  el('bullets').innerHTML=EVENTS.map(e=>{
+    const sold=(e.bought-e.left)/e.bought;
+    const gap=sold-e.elapsed;
+    const st = gap>0.12?['ahead','опережаем'] : gap<-0.12?['late','отстаём']:['pace','в темпе'];
+    return `<div class="brow">
+      <div class="nm">${e.nm}<small>${e.date} · осталось ${e.left}</small></div>
+      <div class="bar" role="img" aria-label="${e.nm}: продано ${pct(sold)} закупленного, прошло ${pct(e.elapsed)} времени до события">
+        <div class="fill" style="width:${(sold*100).toFixed(1)}%"></div>
+        <div class="tick" style="left:${(e.elapsed*100).toFixed(1)}%"></div>
+      </div>
+      <span class="pcts"><b>${pct(sold)}</b> / срок ${pct(e.elapsed)}</span>
+      <span class="st ${st[0]}">${ICON[st[0]]}${st[1]}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- правый столбец ---------- */
+function attention(){
+  el('att').innerHTML=ATT.map(a=>`<div class="row">${ICON[a.icon]}<div class="txt"><b>${a.t}</b>${a.s}</div></div>`).join('');
+}
+function feed(){
+  el('feed').innerHTML=FEED.map(f=>`<div class="fitem${f.ret?' ret':''}">
+      <span class="t">${f.t}</span><span class="ev">${f.ev}</span>
+      <span class="meta"><span>${f.cat}</span><span class="p">${f.ret?'−':''}${rub(f.p)} ₽</span><span>${f.who}</span>${f.ret?'<span class="tagret">возврат</span>':''}</span>
+    </div>`).join('');
+}
+
+/* ---------- сборка ---------- */
+function render(){ kpis(); bars(); table(); }
+document.querySelectorAll('.seg button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    period=+b.dataset.days;
+    document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    render();
+  });
+});
+el('tbtn').addEventListener('click',()=>{
+  const t=el('tbl'), open=t.hidden;
+  t.hidden=!open; el('tbtn').setAttribute('aria-expanded',String(open));
+  el('tbtn').textContent = open?'скрыть таблицу':'таблица';
+});
+render(); news(); prices(); bullets(); attention(); feed();
+window.addEventListener('resize',()=>{ hideTip(); });
+</script>

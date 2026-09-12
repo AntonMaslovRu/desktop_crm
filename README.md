@@ -6,5 +6,7 @@ Mac-приложение для мониторинга продаж билето
 
 Статус: проектирование.
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — архитектура, модель данных, план миграции
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — архитектура, план миграции
+- [docs/DOMAIN.md](docs/DOMAIN.md) — предметная модель, разделы, согласованные решения
+- [docs/mockups/overview.html](docs/mockups/overview.html) — макет главного экрана
   с Cowork-рутин по фазам.
