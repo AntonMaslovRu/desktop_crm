@@ -100,6 +100,24 @@ CREATE TABLE contacts (
 CREATE UNIQUE INDEX ON contacts (email) WHERE email IS NOT NULL AND merged_into IS NULL;
 CREATE INDEX ON contacts (phone) WHERE phone IS NOT NULL;
 
+-- Человек меняет почту и телефон. Основное поле — самое свежее, остальные помним:
+-- по ним ищется переписка в Outlook и ловятся дубли.
+CREATE TABLE contact_emails (
+    contact_id    bigint NOT NULL REFERENCES contacts ON DELETE CASCADE,
+    email         text NOT NULL,
+    first_seen_at timestamptz NOT NULL DEFAULT now(),
+    last_seen_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (contact_id, email)
+);
+
+CREATE TABLE contact_phones (
+    contact_id    bigint NOT NULL REFERENCES contacts ON DELETE CASCADE,
+    phone         text NOT NULL,
+    first_seen_at timestamptz NOT NULL DEFAULT now(),
+    last_seen_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (contact_id, phone)
+);
+
 CREATE TABLE contact_tags (
     contact_id bigint NOT NULL REFERENCES contacts ON DELETE CASCADE,
     tag        text NOT NULL,
