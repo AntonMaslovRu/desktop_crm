@@ -9,7 +9,12 @@ BRANCH=${ENVO_BRANCH:-main}
 
 echo "== пакеты =="
 apt-get update -qq
-apt-get install -y -qq postgresql python3-venv python3-pip git curl >/dev/null
+apt-get install -y -qq postgresql python3-venv python3-pip git curl debian-keyring debian-archive-keyring apt-transport-https >/dev/null
+if ! command -v caddy >/dev/null; then
+  curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt > /etc/apt/sources.list.d/caddy-stable.list
+  apt-get update -qq && apt-get install -y -qq caddy >/dev/null
+fi
 
 echo "== пользователь и каталоги =="
 id envo >/dev/null 2>&1 || useradd --system --home /var/lib/envo --shell /usr/sbin/nologin envo
@@ -49,7 +54,15 @@ if [ ! -f /etc/envo/env ]; then
   echo "создан /etc/envo/env — заполни секреты"
 fi
 install -m 644 "$APP_DIR/deploy/envo.service" /etc/systemd/system/envo.service
+install -m 644 "$APP_DIR/deploy/envo-api.service" /etc/systemd/system/envo-api.service
 systemctl daemon-reload
+if [ -n "${ENVO_API_HOST:-}" ]; then
+  ENVO_API_HOST="$ENVO_API_HOST" envsubst < "$APP_DIR/deploy/Caddyfile" > /etc/caddy/Caddyfile
+  systemctl enable --now caddy && systemctl reload caddy
+  echo "Caddy: https://$ENVO_API_HOST → API"
+else
+  echo "ENVO_API_HOST не задан — TLS для API не настроен (задай и перезапусти скрипт)"
+fi
 
 echo "== сеть =="
 sudo -u envo "$VENV/bin/envoctl" check
@@ -59,5 +72,6 @@ cat <<MSG
 Готово. Дальше:
   1) nano /etc/envo/env            — секреты
   2) sudo -u envo $VENV/bin/envoctl mail-login
-  3) systemctl enable --now envo && journalctl -u envo -f
+  3) sudo -u envo $VENV/bin/envoctl user-add anton
+  4) systemctl enable --now envo envo-api && journalctl -u envo -f
 MSG

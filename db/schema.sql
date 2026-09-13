@@ -10,6 +10,16 @@ CREATE TABLE users (
     last_login_at timestamptz
 );
 
+-- Сессии приложения: в базе только хеш токена, сам токен живёт на Mac.
+CREATE TABLE sessions (
+    token_hash text PRIMARY KEY,
+    user_id    bigint NOT NULL REFERENCES users ON DELETE CASCADE,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    last_seen_at timestamptz NOT NULL DEFAULT now(),
+    device     text
+);
+
 -- ---------- каталог ----------
 
 CREATE TABLE cities (

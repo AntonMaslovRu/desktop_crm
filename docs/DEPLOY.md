@@ -17,14 +17,18 @@ systemd-служба `envo` под пользователем `envo`; секре
 
 ## Порядок
 
-1. `sudo bash deploy/bootstrap.sh` — ставит Postgres и Python, заводит пользователя,
-   каталоги, базу и схему, виртуальное окружение, службу. Идемпотентен.
+1. `sudo ENVO_API_HOST=api.envo.live bash deploy/bootstrap.sh` — ставит Postgres, Python и
+   Caddy, заводит пользователя, каталоги, базу и схему, виртуальное окружение, две службы
+   (ядро и API) и TLS для API. Идемпотентен. Хост API должен A-записью смотреть на сервер.
 2. Заполнить `/etc/envo/env` по `.env.example`. Секреты — только новые, после ротации.
 3. `sudo -u envo /opt/envo/venv/bin/envoctl check` — шесть доменов должны ответить.
 4. `sudo -u envo /opt/envo/venv/bin/envoctl mail-login` — код на экране, вход в браузере
    под support@envo.live. Один раз; токен в `/var/lib/envo/graph_token.json`.
-5. `sudo systemctl enable --now envo` — служба стартует, проверяет сеть и пишет в Telegram.
-6. Параллельная работа с Cowork-рутинами: сутки для лестницы, трое суток для продаж,
+5. `sudo -u envo /opt/envo/venv/bin/envoctl seed` — справочник событий и ступени.
+6. `sudo -u envo /opt/envo/venv/bin/envoctl user-add anton` — пользователь приложения.
+7. `sudo systemctl enable --now envo envo-api` — ядро стартует, проверяет сеть и пишет
+   в Telegram; API слушает 127.0.0.1:8765 за Caddy.
+8. Параллельная работа с Cowork-рутинами: сутки для лестницы, трое суток для продаж,
    двадцать писем для почты. Затем рутины выключаются по одной.
 
 ## Секреты, которые нужно ротировать до запуска

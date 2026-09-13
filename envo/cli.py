@@ -8,6 +8,7 @@
     envoctl mail            вэлкомы в очередь и отправка очереди
     envoctl mail-login      первичный вход в Microsoft Graph (device code), один раз
     envoctl seed            справочник событий и ступени из deploy/seed, повторно безопасно
+    envoctl user-add ЛОГИН  завести пользователя приложения, пароль спросит
     envoctl check           проверка сети до нужных доменов
     envoctl serve           планировщик: всё по расписанию, пока не остановят
 """
@@ -106,6 +107,18 @@ class App:
         if report.failed:
             self.tg.send(f"⚠️ Почта: {report.failed} писем не ушли, остаются в очереди")
 
+    def user_add(self, login: str) -> None:
+        import getpass
+
+        from envo.api import auth
+
+        password = getpass.getpass("пароль (не короче 10): ")
+        if password != getpass.getpass("ещё раз: "):
+            raise SystemExit("пароли не совпали")
+        with db.connect(self.settings.db_dsn) as conn:
+            auth.create_user(conn, login, password)
+        print("пользователь", login, "готов")
+
     def seed(self) -> None:
         with db.connect(self.settings.db_dsn) as conn:
             print(seed.run(conn))
@@ -175,11 +188,12 @@ def main(argv: list[str] | None = None) -> int:
         for host, status in check_network().items():
             print(f"{host:28} {status}")
         return 0
-    if command not in {"sync", "deep", "carts", "ladder", "digest", "mail", "mail-login", "seed", "serve"}:
+    if command not in {"sync", "deep", "carts", "ladder", "digest", "mail", "mail-login", "seed",
+                       "user-add", "serve"}:
         print(__doc__)
         return 0 if command == "help" else 2
     app = App()
-    getattr(app, command.replace("-", "_"))()
+    getattr(app, command.replace("-", "_"))(*argv[1:])
     return 0
 
 
