@@ -171,6 +171,19 @@ CREATE TABLE tickets (
     PRIMARY KEY (order_id, afisha_id)          -- ключ дедупа: запись билета идемпотентна
 );
 
+-- Догон брошенных корзин. Заказ со статусом cart — сама корзина; здесь — что мы с ней делали.
+CREATE TABLE cart_followups (
+    order_id       bigint PRIMARY KEY REFERENCES orders ON DELETE CASCADE,
+    state          text NOT NULL DEFAULT 'quarantine'
+                   CHECK (state IN ('quarantine', 'ready', 'sent', 'replied', 'bought', 'excluded')),
+    reason         text,                       -- почему исключена: купил сам, событие снято, поздно
+    letter_sent_at timestamptz,
+    replied_at     timestamptz,
+    result         text,
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---------- закупка ----------
 
 CREATE TABLE suppliers (

@@ -1,0 +1,21 @@
+[Unit]
+Description=Envo Desk — ядро
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=envo
+Group=envo
+EnvironmentFile=/etc/envo/env
+WorkingDirectory=/opt/envo/app
+ExecStart=/opt/envo/venv/bin/envoctl serve
+Restart=always
+RestartSec=10
+StateDirectory=envo
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/envo
+
+[Install]
+WantedBy=multi-user.target

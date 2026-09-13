@@ -1,6 +1,8 @@
 """envoctl — точка входа: разовые команды и режим службы с планировщиком.
 
-    envoctl sync            один прогон продаж
+    envoctl sync            один прогон продаж (окно 3 дня)
+    envoctl deep            глубокая синхронизация: статусы за 30 дней, без лишних запросов
+    envoctl carts           брошенные корзины: карантин, письма в очередь
     envoctl ladder          пересчёт ступеней
     envoctl digest          сводки, если время пришло
     envoctl mail            вэлкомы в очередь и отправка очереди
@@ -18,7 +20,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from envo import db, digest, ingest, ladder, mailer, welcome
+from envo import carts, db, digest, ingest, ladder, mailer, welcome
 from envo.afisha import AfishaClient
 from envo.config import MSK, Settings
 from envo.graph import GraphTransport
@@ -29,7 +31,8 @@ log = logging.getLogger("envo")
 DOMAINS = ("api.tickets.yandex.net", "www.cbr.ru", "afisha.yandex.ru",
            "outlook.office365.com", "news.google.com", "api.telegram.org")
 
-PERIODS = {"sales.sync": 600, "ladder.check": 600, "mail": 120, "digest": 300, "heartbeat": 900}
+PERIODS = {"sales.sync": 600, "sales.deep": 3600, "ladder.check": 600, "mail": 120,
+           "carts": 1800, "digest": 300, "heartbeat": 900}
 
 
 def check_network() -> dict[str, str]:
@@ -57,9 +60,9 @@ class App:
         self.transport = GraphTransport(self.settings.graph_tenant, self.settings.graph_client_id,
                                         cache_path=Path(self.settings.mail_cache))
 
-    def sync(self) -> None:
+    def sync(self, window_days: int = ingest.WINDOW_DAYS) -> None:
         with db.connect(self.settings.db_dsn) as conn:
-            stats = ingest.run(conn, self.client)
+            stats = ingest.run(conn, self.client, window_days=window_days)
         if stats.skipped:
             log.info("продажи: прогон уже идёт, пропуск")
             return
@@ -68,6 +71,14 @@ class App:
             self.tg.send("⚠️ Ингест: незнакомые статусы "
                          f"{stats.unknown_statuses or '—'}, события вне каталога "
                          f"{len(stats.unknown_events)}")
+
+    def deep(self) -> None:
+        """Корзина могла оплатиться, заказ — вернуться через неделю: смотрим глубже раз в час."""
+        self.sync(window_days=carts.WINDOW_DAYS)
+
+    def carts(self) -> None:
+        with db.connect(self.settings.db_dsn) as conn:
+            carts.run(conn, self.tg, now=datetime.now(MSK))
 
     def ladder(self) -> None:
         with db.connect(self.settings.db_dsn) as conn:
@@ -121,8 +132,9 @@ class App:
         else:
             self.tg.send("Envo Desk запущен, сеть в порядке.")
 
-        jobs = {"sales.sync": self.sync, "ladder.check": self.ladder, "mail": self.mail,
-                "digest": self.digest, "heartbeat": self.heartbeat}
+        jobs = {"sales.sync": self.sync, "sales.deep": self.deep, "ladder.check": self.ladder,
+                "mail": self.mail, "carts": self.carts, "digest": self.digest,
+                "heartbeat": self.heartbeat}
         last: dict[str, float] = {name: 0.0 for name in jobs}
         while True:
             now = time.monotonic()
@@ -158,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         for host, status in check_network().items():
             print(f"{host:28} {status}")
         return 0
-    if command not in {"sync", "ladder", "digest", "mail", "mail-login", "serve"}:
+    if command not in {"sync", "deep", "carts", "ladder", "digest", "mail", "mail-login", "serve"}:
         print(__doc__)
         return 0 if command == "help" else 2
     app = App()
