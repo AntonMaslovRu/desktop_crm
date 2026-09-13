@@ -3,6 +3,8 @@
     envoctl sync            один прогон продаж
     envoctl ladder          пересчёт ступеней
     envoctl digest          сводки, если время пришло
+    envoctl mail            вэлкомы в очередь и отправка очереди
+    envoctl mail-login      первичный вход в Microsoft Graph (device code), один раз
     envoctl check           проверка сети до нужных доменов
     envoctl serve           планировщик: всё по расписанию, пока не остановят
 """
@@ -14,10 +16,12 @@ import sys
 import time
 import urllib.request
 from datetime import datetime
+from pathlib import Path
 
-from envo import db, digest, ingest, ladder
+from envo import db, digest, ingest, ladder, mailer, welcome
 from envo.afisha import AfishaClient
 from envo.config import MSK, Settings
+from envo.graph import GraphTransport
 from envo.telegram import Telegram
 
 log = logging.getLogger("envo")
@@ -25,7 +29,7 @@ log = logging.getLogger("envo")
 DOMAINS = ("api.tickets.yandex.net", "www.cbr.ru", "afisha.yandex.ru",
            "outlook.office365.com", "news.google.com", "api.telegram.org")
 
-PERIODS = {"sales.sync": 600, "ladder.check": 600, "digest": 300, "heartbeat": 900}
+PERIODS = {"sales.sync": 600, "ladder.check": 600, "mail": 120, "digest": 300, "heartbeat": 900}
 
 
 def check_network() -> dict[str, str]:
@@ -50,6 +54,8 @@ class App:
         self.client = AfishaClient(self.settings.afisha_login, self.settings.afisha_password,
                                    self.settings.afisha_city)
         self.tg = Telegram(self.settings.telegram_token, self.settings.telegram_chat)
+        self.transport = GraphTransport(self.settings.graph_tenant, self.settings.graph_client_id,
+                                        cache_path=Path(self.settings.mail_cache))
 
     def sync(self) -> None:
         with db.connect(self.settings.db_dsn) as conn:
@@ -71,6 +77,26 @@ class App:
     def digest(self) -> None:
         with db.connect(self.settings.db_dsn) as conn:
             digest.due(conn, self.tg, self.settings.digest_hours, datetime.now(MSK))
+
+    def mail(self) -> None:
+        """Правило «оплачен → вэлком», затем дренаж очереди. Без токена Graph очередь копится."""
+        with db.connect(self.settings.db_dsn) as conn:
+            with db.run_record(conn, "mail") as slot:
+                rule = welcome.process(conn)
+                report = mailer.dispatch(conn, self.transport, now=datetime.now(MSK),
+                                         quiet_from=self.settings.quiet_from,
+                                         quiet_to=self.settings.quiet_to)
+                slot.update({"queued": rule.queued, "no_instructions": rule.no_instructions,
+                             **report.__dict__})
+        if rule.no_instructions:
+            self.tg.send("⚠️ Нет текста письма в карточке события: "
+                         + ", ".join(sorted(set(rule.no_instructions))))
+        if report.failed:
+            self.tg.send(f"⚠️ Почта: {report.failed} писем не ушли, остаются в очереди")
+
+    def mail_login(self) -> None:
+        self.transport.login()
+        print("Вход выполнен, токен сохранён в", self.settings.mail_cache)
 
     def heartbeat(self) -> None:
         """Пинг внешнего сторожа. Молчание — сигнал снаружи, а не от упавшей программы."""
@@ -95,7 +121,7 @@ class App:
         else:
             self.tg.send("Envo Desk запущен, сеть в порядке.")
 
-        jobs = {"sales.sync": self.sync, "ladder.check": self.ladder,
+        jobs = {"sales.sync": self.sync, "ladder.check": self.ladder, "mail": self.mail,
                 "digest": self.digest, "heartbeat": self.heartbeat}
         last: dict[str, float] = {name: 0.0 for name in jobs}
         while True:
@@ -132,11 +158,11 @@ def main(argv: list[str] | None = None) -> int:
         for host, status in check_network().items():
             print(f"{host:28} {status}")
         return 0
-    if command not in {"sync", "ladder", "digest", "serve"}:
+    if command not in {"sync", "ladder", "digest", "mail", "mail-login", "serve"}:
         print(__doc__)
         return 0 if command == "help" else 2
     app = App()
-    getattr(app, command)()
+    getattr(app, command.replace("-", "_"))()
     return 0
 
 
