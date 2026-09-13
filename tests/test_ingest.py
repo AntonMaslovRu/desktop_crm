@@ -33,8 +33,9 @@ def order_row(oid="4419077", **kw):
         "sum": "108000",
         "tickets_count": 1,
         "order_date": "2026-09-12 14:22:31",
-        "customer": {"name": "Петров Александр", "email": "a.petrov@mail.ru",
-                     "phone": "+79161234567"},
+        "event_id": 70823021,
+        "customer": {"id": "7261", "name": "Петров Александр", "email": "a.petrov@mail.ru",
+                     "phone": "+79161234567", "is_subscripted": 1},
     }
     row.update(kw)
     return row
@@ -64,7 +65,7 @@ class TestIdempotency:
 
         assert (first.orders_new, first.tickets_new) == (1, 1)
         assert (second.orders_new, second.tickets_new) == (0, 0)
-        assert second.orders_updated == 1
+        assert second.orders_unchanged == 1, "тот же заказ — перечитывать нечего"
         assert db.fetch_one(conn, "SELECT count(*) AS n FROM tickets")["n"] == 1
         assert db.fetch_one(conn, "SELECT count(*) AS n FROM orders")["n"] == 1
 
@@ -91,8 +92,8 @@ class TestReturns:
 
         assert first.returns == 1
         assert second.returns == 0, "повторный прогон не должен слать возврат заново"
-        assert db.fetch_one(conn, "SELECT status FROM orders")["status"] == "возврат"
-        assert db.fetch_one(conn, "SELECT status FROM tickets")["status"] == "возврат"
+        assert db.fetch_one(conn, "SELECT status FROM orders")["status"] == "refund"
+        assert db.fetch_one(conn, "SELECT status FROM tickets")["status"] == "refund"
 
     def test_return_publishes_event(self, conn):
         make_event(conn)
@@ -130,6 +131,7 @@ class TestContacts:
         make_event(conn)
         by_mail = order_row("1")
         by_mail["customer"] = {"name": "Пётр Кузнецов", "email": "p@mail.ru", "phone": ""}
+        by_mail["customer_id_dummy"] = None
         by_phone = order_row("2")
         by_phone["customer"] = {"name": "Пётр Кузнецов", "email": "", "phone": "+79990001122"}
         sync_orders(conn, crm([by_mail, by_phone], {"1": [ticket_row()], "2": [ticket_row("t2")]}),
@@ -197,14 +199,14 @@ class TestCarts:
     def test_unfinished_order_is_stored_as_cart(self, conn):
         make_event(conn)
         sync_orders(conn, crm([order_row(status=0)], {"4419077": [ticket_row()]}), today=TODAY)
-        assert db.fetch_one(conn, "SELECT status FROM orders")["status"] == "корзина"
+        assert db.fetch_one(conn, "SELECT status FROM orders")["status"] == "cart"
 
     def test_cart_becomes_paid_without_duplicating(self, conn):
         make_event(conn)
         sync_orders(conn, crm([order_row(status=0)], {"4419077": [ticket_row()]}), today=TODAY)
         sync_orders(conn, crm([order_row(status=1)], {"4419077": [ticket_row()]}), today=TODAY)
         rows = db.fetch_all(conn, "SELECT status FROM orders")
-        assert len(rows) == 1 and rows[0]["status"] == "оплачен"
+        assert len(rows) == 1 and rows[0]["status"] == "paid"
 
 
 class TestRunRecord:
@@ -217,6 +219,109 @@ class TestRunRecord:
 
     def test_successful_run_saves_stats(self, conn):
         with db.run_record(conn, "sales.sync") as stats:
-            stats["билетов новых"] = 3
+            stats["tickets_new"] = 3
         row = db.fetch_one(conn, "SELECT status, stats FROM runs")
-        assert row["status"] == "ok" and row["stats"]["билетов новых"] == 3
+        assert row["status"] == "ok" and row["stats"]["tickets_new"] == 3
+
+    def test_duration_is_measured_inside_one_transaction(self, conn):
+        import time
+
+        with db.run_record(conn, "sales.sync"):
+            time.sleep(0.05)
+        row = db.fetch_one(conn, "SELECT finished_at - started_at AS took FROM runs")
+        assert row["took"].total_seconds() >= 0.05, "now() дал бы ноль: это начало транзакции"
+
+
+class TestFingerprint:
+    def test_unchanged_order_does_not_fetch_details(self, conn):
+        make_event(conn)
+        calls = []
+
+        def opener(url: str) -> bytes:
+            calls.append(url)
+            if "crm.order.list" in url:
+                return json.dumps({"status": "0", "result": [order_row()]}).encode()
+            return json.dumps({"status": "0", "result": [{"tickets": [ticket_row()]}]}).encode()
+
+        client = AfishaClient("u", "p", "1", opener=opener)
+        sync_orders(conn, client, today=TODAY)
+        calls.clear()
+        stats = sync_orders(conn, client, today=TODAY)
+
+        assert stats.orders_unchanged == 1
+        assert not any("crm.order.info" in u for u in calls), "неизменённый заказ не перечитываем"
+
+    def test_changed_total_refetches_tickets(self, conn):
+        make_event(conn)
+        sync_orders(conn, crm([order_row()], {"4419077": [ticket_row()]}), today=TODAY)
+        stats = sync_orders(
+            conn,
+            crm([order_row(sum="216000", tickets_count=2)],
+                {"4419077": [ticket_row(), ticket_row("t2")]}),
+            today=TODAY,
+        )
+        assert stats.orders_updated == 1 and stats.tickets_new == 1
+
+
+class TestStatuses:
+    def test_unknown_afisha_status_is_not_a_cart(self, conn):
+        make_event(conn)
+        stats = sync_orders(conn, crm([order_row(status=7)], {"4419077": [ticket_row()]}),
+                            today=TODAY)
+        assert db.fetch_one(conn, "SELECT status FROM orders")["status"] == "unknown"
+        assert stats.unknown_statuses == {"7": 1}
+
+    def test_cart_to_paid_publishes_payment(self, conn):
+        make_event(conn)
+        sync_orders(conn, crm([order_row(status=0)], {"4419077": [ticket_row()]}), today=TODAY)
+        sync_orders(conn, crm([order_row(status=1)], {"4419077": [ticket_row()]}), today=TODAY)
+        topics = [r["topic"] for r in db.fetch_all(conn, "SELECT topic FROM events_log ORDER BY id")]
+        assert topics == ["order.created", "order.paid"]
+
+
+class TestAfishaFields:
+    def test_customer_id_is_the_first_merge_key(self, conn):
+        make_event(conn)
+        first = order_row("1")
+        first["customer"] = {"id": "7261", "name": "Петров Александр",
+                             "email": "old@mail.ru", "phone": "+70000000001"}
+        second = order_row("2")
+        second["customer"] = {"id": "7261", "name": "Петров Александр",
+                              "email": "new@mail.ru", "phone": "+70000000002"}
+        sync_orders(conn, crm([first, second], {"1": [ticket_row()], "2": [ticket_row("t2")]}),
+                    today=TODAY)
+        assert db.fetch_one(conn, "SELECT count(*) AS n FROM contacts")["n"] == 1
+
+    def test_refundable_flag_comes_from_sector(self, conn):
+        make_event(conn)
+        sync_orders(conn, crm([order_row()], {"4419077": [
+            ticket_row("t1", sector="Верхний ярус (Невозвратные)"),
+            ticket_row("t2", sector="Верхний ярус (Возвратные)"),
+            ticket_row("t3", sector="Партер"),
+        ]}), today=TODAY)
+        flags = {r["afisha_id"]: r["refundable"]
+                 for r in db.fetch_all(conn, "SELECT afisha_id, refundable FROM tickets")}
+        assert flags == {"t1": False, "t2": True, "t3": None}
+
+    def test_showcase_and_consent_are_stored(self, conn):
+        make_event(conn)
+        sync_orders(conn, crm([order_row(agent_id=12)], {"4419077": [ticket_row()]}),
+                    today=TODAY, agents={12: "Яндекс Виджет"})
+        assert db.fetch_one(conn, "SELECT showcase FROM orders")["showcase"] == "Яндекс Виджет"
+        assert db.fetch_one(conn, "SELECT consent_afisha FROM contacts")["consent_afisha"] is True
+
+
+class TestEvents:
+    def test_events_are_created_and_updated_from_afisha(self, conn):
+        from envo.afisha import Event
+        from envo.ingest import IngestStats, sync_events
+        from datetime import datetime
+
+        stats = IngestStats()
+        sync_events(conn, [Event(1, "UFC 333 (перенос)", datetime(2026, 10, 24, 18), "1", 55)], stats)
+        sync_events(conn, [Event(1, "UFC 333 (перенос)", datetime(2026, 10, 24, 18), "1", 55)], stats)
+        sync_events(conn, [Event(1, "UFC 333", datetime(2026, 10, 25, 18), "1", 55)], stats)
+
+        assert (stats.events_new, stats.events_updated) == (1, 1)
+        row = db.fetch_one(conn, "SELECT title, display_name, afisha_venue_id FROM events")
+        assert row["title"] == "UFC 333" and row["afisha_venue_id"] == 55

@@ -14,7 +14,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, datetime
+import re
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable
 
 BASE_URL = "https://api.tickets.yandex.net/api/crm/"
@@ -53,6 +54,9 @@ class Event:
     id: int
     name: str
     starts_at: datetime
+    status: str | None = None
+    venue_id: int | None = None
+    raw: dict | None = None
 
     @property
     def display_name(self) -> str:
@@ -70,6 +74,8 @@ class Ticket:
     sector: str
     price: float
     barcode: str
+    status: str | None = None
+    refundable: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -85,6 +91,14 @@ class Order:
     phone: str
     agent_id: int | None
     raw: dict
+    event_id: int | None = None
+    customer_id: str | None = None
+    subscribed: bool | None = None
+
+    @property
+    def fingerprint(self) -> str:
+        """Меняется, когда заказ надо перечитать целиком; иначе order.info не дёргаем."""
+        return f"{self.status}:{int(self.is_returned)}:{self.tickets_count}:{self.total:.2f}"
 
     @property
     def is_paid(self) -> bool:
@@ -96,13 +110,40 @@ class Order:
         return self.status == 0 and not self.is_returned
 
 
+_OFFSET = re.compile(r"([+-])(\d{2}):?(\d{2})$")
+
+
 def _parse_dt(value: str | None) -> datetime | None:
+    """«2026-09-12 08:51:28+0300» → aware datetime; без смещения — naive, как отдала Афиша."""
     if not value:
         return None
+    text = str(value).strip()
     try:
-        return datetime.strptime(str(value)[:19], "%Y-%m-%d %H:%M:%S")
+        naive = datetime.strptime(text[:19], "%Y-%m-%d %H:%M:%S")
     except ValueError:
         return None
+    match = _OFFSET.search(text[19:])
+    if not match:
+        return naive
+    sign = 1 if match.group(1) == "+" else -1
+    offset = timedelta(hours=int(match.group(2)), minutes=int(match.group(3)))
+    return naive.replace(tzinfo=timezone(sign * offset))
+
+
+_BRACKETS = re.compile(r"\(([^)]*)\)")
+_REFUNDABLE = re.compile(r"(не)?возвратн", re.IGNORECASE)
+
+
+def refundable_from_sector(sector: str) -> bool | None:
+    """Тип билета из скобок в названии сектора.
+
+    «… (Невозвратные)» → False, «… (возвратные, Golden Circle)» → True, без пометки → None.
+    """
+    for group in _BRACKETS.findall(sector or ""):
+        match = _REFUNDABLE.search(group)
+        if match:
+            return match.group(1) is None
+    return None
 
 
 class AfishaClient:
@@ -159,7 +200,14 @@ class AfishaClient:
             starts_at = _parse_dt(row.get("date"))
             if starts_at is None:
                 continue
-            out.append(Event(id=int(row["id"]), name=(row.get("name") or "").strip(), starts_at=starts_at))
+            out.append(Event(
+                id=int(row["id"]),
+                name=(row.get("name") or "").strip(),
+                starts_at=starts_at,
+                status=str(row["status"]) if row.get("status") is not None else None,
+                venue_id=int(row["venue_id"]) if row.get("venue_id") else None,
+                raw=row,
+            ))
         return out
 
     def agents(self) -> dict[int, str]:
@@ -188,6 +236,8 @@ class AfishaClient:
                     sector=(t.get("sector") or "").strip(),
                     price=price,
                     barcode=str(t.get("barcode") or ""),
+                    status=str(t["status"]) if t.get("status") is not None else None,
+                    refundable=refundable_from_sector(t.get("sector") or ""),
                 )
             )
         return out
@@ -211,4 +261,8 @@ class AfishaClient:
             phone=(customer.get("phone") or "").lstrip("+"),
             agent_id=int(row["agent_id"]) if row.get("agent_id") else None,
             raw=row,
+            event_id=int(row["event_id"]) if row.get("event_id") else None,
+            customer_id=str(customer["id"]) if customer.get("id") else None,
+            subscribed=(bool(customer["is_subscripted"])
+                        if customer.get("is_subscripted") is not None else None),
         )

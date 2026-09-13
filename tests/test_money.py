@@ -101,7 +101,7 @@ class Allocation(unittest.TestCase):
 
 class PnL(unittest.TestCase):
     def test_profit_and_frozen_money(self):
-        sales = [(94_500, "Афиша"), (108_000, "Афиша"), (149_000, "Прямой")]
+        sales = [(94_500, "afisha"), (108_000, "afisha"), (149_000, "direct")]
         pnl = money.event_pnl(sales, invested=2_001_360, cost_of_sold=137_140)
         self.assertAlmostEqual(pnl.revenue, 351_500, places=2)
         # прямая продажа не платит площадке
@@ -109,7 +109,7 @@ class PnL(unittest.TestCase):
         self.assertAlmostEqual(pnl.frozen, 2_001_360 - 137_140, places=2)
 
     def test_write_off_reduces_profit(self):
-        sales = [(100_000, "Афиша")]
+        sales = [(100_000, "afisha")]
         kept = money.event_pnl(sales, invested=500_000, cost_of_sold=40_000)
         burned = money.event_pnl(sales, invested=500_000, cost_of_sold=40_000, written_off=60_000)
         self.assertAlmostEqual(kept.profit - burned.profit, 60_000, places=2)

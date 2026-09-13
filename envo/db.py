@@ -65,21 +65,23 @@ def run_record(conn: psycopg.Connection, job: str) -> Iterator[dict]:
     import json
 
     row = conn.execute(
-        "INSERT INTO runs (job) VALUES (%s) RETURNING id", (job,)
+        "INSERT INTO runs (job, started_at) VALUES (%s, clock_timestamp()) RETURNING id", (job,)
     ).fetchone()
     stats: dict[str, Any] = {}
     try:
         yield stats
     except Exception as exc:
         conn.execute(
-            "UPDATE runs SET finished_at = now(), status = 'failed', error = %s, stats = %s"
+            "UPDATE runs SET finished_at = clock_timestamp(), status = 'failed',"
+            " error = %s, stats = %s"
             " WHERE id = %s",
             (str(exc)[:2000], json.dumps(stats, ensure_ascii=False, default=str), row["id"]),
         )
         raise
     else:
         conn.execute(
-            "UPDATE runs SET finished_at = now(), status = 'ok', stats = %s WHERE id = %s",
+            "UPDATE runs SET finished_at = clock_timestamp(), status = 'ok', stats = %s"
+            " WHERE id = %s",
             (json.dumps(stats, ensure_ascii=False, default=str), row["id"]),
         )
 
@@ -89,6 +91,8 @@ def single_run(conn: psycopg.Connection, job: str) -> bool:
 
     Блокировка держится до конца транзакции, снимать руками не нужно.
     """
-    key = abs(hash(job)) % (2**31)
+    import zlib
+
+    key = zlib.crc32(job.encode()) & 0x7FFFFFFF  # hash() у Python случайный на процесс
     row = conn.execute("SELECT pg_try_advisory_xact_lock(%s) AS got", (key,)).fetchone()
     return bool(row["got"])

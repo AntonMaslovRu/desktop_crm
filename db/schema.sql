@@ -36,9 +36,12 @@ CREATE TABLE events (
     title        text NOT NULL,
     display_name text NOT NULL,
     venue_id     bigint REFERENCES venues ON DELETE SET NULL,
-    starts_at    timestamptz NOT NULL,
+    starts_at    timestamp NOT NULL,         -- как отдаёт Афиша, без пояса: местное время площадки
     kind         text,                       -- концерт, спорт, шоу
     tracking     boolean NOT NULL DEFAULT true,
+    afisha_status text,
+    afisha_venue_id bigint,
+    raw          jsonb,
     letter_single text,
     letter_multi  text,
     created_at   timestamptz NOT NULL DEFAULT now(),
@@ -89,15 +92,19 @@ CREATE TABLE steps (
 
 CREATE TABLE contacts (
     id         bigserial PRIMARY KEY,
+    afisha_customer_id text,                     -- стабильный id покупателя у Афиши, первый ключ склейки
     email      text,
     phone      text,
     name       text,
     salutation text,
-    consent    boolean NOT NULL DEFAULT false,   -- согласие на анонсы
+    consent    boolean NOT NULL DEFAULT false,   -- согласие на анонсы, наше
+    consent_afisha boolean,                      -- is_subscripted у Афиши
     merged_into bigint REFERENCES contacts ON DELETE SET NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX ON contacts (email) WHERE email IS NOT NULL AND merged_into IS NULL;
+CREATE UNIQUE INDEX ON contacts (afisha_customer_id)
+    WHERE afisha_customer_id IS NOT NULL AND merged_into IS NULL;
 CREATE INDEX ON contacts (phone) WHERE phone IS NOT NULL;
 
 -- Человек меняет почту и телефон. Основное поле — самое свежее, остальные помним:
@@ -130,11 +137,16 @@ CREATE TABLE orders (
     afisha_id    text UNIQUE,
     event_id     bigint REFERENCES events ON DELETE SET NULL,
     contact_id   bigint REFERENCES contacts ON DELETE SET NULL,
-    channel      text NOT NULL DEFAULT 'Афиша' CHECK (channel IN ('Афиша', 'Прямой')),
-    status       text NOT NULL CHECK (status IN ('корзина', 'оплачен', 'возврат')),
+    channel      text NOT NULL DEFAULT 'afisha' CHECK (channel IN ('afisha', 'direct')),
+    -- cart: не оплачен · paid · refund · unknown: статус Афиши, которого мы не знаем
+    status       text NOT NULL CHECK (status IN ('cart', 'paid', 'refund', 'unknown')),
+    afisha_status integer,
+    agent_id     bigint,                       -- витрина: Афиша, виджет, закрытые продажи
+    showcase     text,
     ordered_at   timestamptz,
     total        numeric(12,2) NOT NULL DEFAULT 0,
     tickets_count integer NOT NULL DEFAULT 0,
+    fingerprint  text,                          -- что менялось с прошлого прогона; иначе order.info не дёргаем
     welcome_sent_at timestamptz,
     tickets_sent_at timestamptz,
     tickets_sent_by text CHECK (tickets_sent_by IN ('outlook', 'manual')),
@@ -152,7 +164,9 @@ CREATE TABLE tickets (
     sector      text,
     barcode     text,
     price       numeric(12,2) NOT NULL DEFAULT 0,
-    status      text NOT NULL DEFAULT 'продан',
+    refundable  boolean,                        -- из скобок в названии сектора
+    status      text NOT NULL DEFAULT 'sold' CHECK (status IN ('sold', 'refund', 'cart')),
+    afisha_status text,
     sold_at     timestamptz,
     PRIMARY KEY (order_id, afisha_id)          -- ключ дедупа: запись билета идемпотентна
 );
@@ -162,7 +176,7 @@ CREATE TABLE tickets (
 CREATE TABLE suppliers (
     id           bigserial PRIMARY KEY,
     name         text NOT NULL UNIQUE,
-    kind         text CHECK (kind IN ('офсайт', 'агрегатор', 'вторичка', 'частник')),
+    kind         text CHECK (kind IN ('official', 'aggregator', 'resale', 'private')),
     url          text,
     currency     text,
     default_fee  numeric(5,4) DEFAULT 0.10,
@@ -173,7 +187,7 @@ CREATE TABLE suppliers (
 CREATE TABLE payment_accounts (
     id       bigserial PRIMARY KEY,
     name     text NOT NULL UNIQUE,           -- «карта ·4417», «счёт AED»
-    kind     text CHECK (kind IN ('карта', 'счёт', 'крипта', 'наличные')),
+    kind     text CHECK (kind IN ('card', 'account', 'crypto', 'cash')),
     owner    text,
     currency text
 );
@@ -188,8 +202,8 @@ CREATE TABLE purchases (
     rate         numeric(12,6) NOT NULL,      -- курс ЦБ на дату
     rate_buffer  numeric(6,2) NOT NULL DEFAULT 1.0,
     actual_charged numeric(14,2),             -- сколько реально списал банк, если известно
-    status       text NOT NULL DEFAULT 'оплачен'
-                 CHECK (status IN ('оплачен', 'получен', 'проблема')),
+    status       text NOT NULL DEFAULT 'paid'
+                 CHECK (status IN ('paid', 'received', 'problem')),
     reference    text,
     notes        text,
     created_at   timestamptz NOT NULL DEFAULT now()
@@ -266,7 +280,7 @@ CREATE TABLE reply_templates (
 
 CREATE TABLE feed (
     id          bigserial PRIMARY KEY,
-    kind        text NOT NULL,                 -- тур | старт | sold out | перенос
+    kind        text NOT NULL CHECK (kind IN ('tour', 'onsale', 'soldout', 'moved', 'other')),
     title       text NOT NULL,
     url         text NOT NULL,
     source      text NOT NULL,

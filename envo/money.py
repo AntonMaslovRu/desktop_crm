@@ -24,7 +24,8 @@ WAVES = (0.30, 0.40, 0.50)  # волны маржи
 class Channel:
     """Канал продажи. Отличаются только сбором площадки."""
 
-    name: str
+    code: str  # так канал хранится в базе
+    label: str  # так показывается человеку
     platform_fee: float
     tax: float = TAX
     xborder_fee: float = XBORDER_FEE
@@ -40,9 +41,9 @@ class Channel:
         return (1 - self.platform_fee) * self.tax
 
 
-AFISHA = Channel("Афиша", platform_fee=PLATFORM_FEE)
-DIRECT = Channel("Прямой", platform_fee=0.0)
-CHANNELS = {c.name: c for c in (AFISHA, DIRECT)}
+AFISHA = Channel("afisha", "Афиша", platform_fee=PLATFORM_FEE)
+DIRECT = Channel("direct", "Прямой", platform_fee=0.0)
+CHANNELS = {c.code: c for c in (AFISHA, DIRECT)}
 
 
 def nice_up(value: float) -> int:
@@ -136,7 +137,7 @@ def wave_price(
         payable=payable,
         listed=listed,
         refundable=refundable,
-        channel=channel.name,
+        channel=channel.code,
     )
 
 
@@ -188,8 +189,8 @@ def event_pnl(
     Канал влияет только на сбор площадки, поэтому прямые продажи считаются наравне.
     """
     revenue = taxes = platform = 0.0
-    for price, channel_name in sales:
-        channel = CHANNELS[channel_name]
+    for price, channel_code in sales:
+        channel = CHANNELS[channel_code]
         revenue += price
         taxes += price * channel.tax_share
         platform += price * channel.platform_fee

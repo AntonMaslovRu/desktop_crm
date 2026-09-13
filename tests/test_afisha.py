@@ -4,7 +4,9 @@ import json
 import unittest
 from datetime import date
 
-from envo.afisha import AfishaClient, AfishaError, flatten
+from datetime import timedelta, timezone
+
+from envo.afisha import AfishaClient, AfishaError, flatten, refundable_from_sector
 
 
 def canned(payload: dict, calls: list | None = None):
@@ -83,8 +85,10 @@ class Parsing(unittest.TestCase):
         "status": 1,
         "sum": "108000",
         "tickets_count": 1,
-        "order_date": "2026-09-12 14:22:31",
-        "customer": {"name": "Петров Александр", "email": " A.Petrov@Mail.ru ", "phone": "+79161234567"},
+        "order_date": "2026-09-12 14:22:31+0300",
+        "event_id": "70823021",
+        "customer": {"id": 7261, "name": "Петров Александр", "email": " A.Petrov@Mail.ru ",
+                     "phone": "+79161234567", "is_subscripted": 0},
         "agent_id": "12",
     }
 
@@ -96,6 +100,25 @@ class Parsing(unittest.TestCase):
         self.assertEqual(order.phone, "79161234567")
         self.assertTrue(order.is_paid)
         self.assertFalse(order.is_cart)
+        self.assertEqual(order.event_id, 70823021)
+        self.assertEqual(order.customer_id, "7261")
+        self.assertIs(order.subscribed, False)
+
+    def test_order_time_keeps_afisha_offset(self):
+        client = AfishaClient("u", "p", "1", opener=canned({"status": "0", "result": [self.ORDER]}))
+        order = client.orders(date(2026, 9, 1), date(2026, 9, 13))[0]
+        self.assertEqual(order.ordered_at.utcoffset(), timedelta(hours=3))
+        self.assertEqual(order.ordered_at.astimezone(timezone.utc).hour, 11)
+
+    def test_fingerprint_changes_only_when_order_changes(self):
+        client = AfishaClient("u", "p", "1", opener=canned({"status": "0", "result": [self.ORDER]}))
+        a = client.orders(date(2026, 9, 1), date(2026, 9, 13))[0]
+        b = client.orders(date(2026, 9, 1), date(2026, 9, 13))[0]
+        self.assertEqual(a.fingerprint, b.fingerprint)
+        changed = dict(self.ORDER, sum="216000")
+        client = AfishaClient("u", "p", "1", opener=canned({"status": "0", "result": [changed]}))
+        c = client.orders(date(2026, 9, 1), date(2026, 9, 13))[0]
+        self.assertNotEqual(a.fingerprint, c.fingerprint)
 
     def test_cart_is_an_unfinished_order(self):
         row = dict(self.ORDER, status=0)
@@ -133,3 +156,15 @@ class Parsing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Refundable(unittest.TestCase):
+    def test_sector_suffix(self):
+        self.assertIs(refundable_from_sector("Верхний ярус (Невозвратные)"), False)
+        self.assertIs(refundable_from_sector("Партер (Возвратные)"), True)
+        # живые названия с Афиши: пометка внутри скобок вместе с другим текстом
+        self.assertIs(refundable_from_sector("У сцены (возвратные, Golden Circle)"), True)
+        self.assertIs(refundable_from_sector("Танцпол (невозвратные, Standing)"), False)
+        self.assertIs(refundable_from_sector("Танцпол (Невозвратный)"), False)
+        self.assertIs(refundable_from_sector("Партер"), None)
+        self.assertIs(refundable_from_sector(""), None)
