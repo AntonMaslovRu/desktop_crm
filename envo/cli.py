@@ -7,6 +7,7 @@
     envoctl digest          сводки, если время пришло
     envoctl mail            вэлкомы в очередь и отправка очереди
     envoctl mail-login      первичный вход в Microsoft Graph (device code), один раз
+    envoctl seed            справочник событий и ступени из deploy/seed, повторно безопасно
     envoctl check           проверка сети до нужных доменов
     envoctl serve           планировщик: всё по расписанию, пока не остановят
 """
@@ -20,7 +21,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from envo import carts, db, digest, ingest, ladder, mailer, welcome
+from envo import carts, db, digest, ingest, ladder, mailer, seed, welcome
 from envo.afisha import AfishaClient
 from envo.config import MSK, Settings
 from envo.graph import GraphTransport
@@ -105,6 +106,10 @@ class App:
         if report.failed:
             self.tg.send(f"⚠️ Почта: {report.failed} писем не ушли, остаются в очереди")
 
+    def seed(self) -> None:
+        with db.connect(self.settings.db_dsn) as conn:
+            print(seed.run(conn))
+
     def mail_login(self) -> None:
         self.transport.login()
         print("Вход выполнен, токен сохранён в", self.settings.mail_cache)
@@ -170,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
         for host, status in check_network().items():
             print(f"{host:28} {status}")
         return 0
-    if command not in {"sync", "deep", "carts", "ladder", "digest", "mail", "mail-login", "serve"}:
+    if command not in {"sync", "deep", "carts", "ladder", "digest", "mail", "mail-login", "seed", "serve"}:
         print(__doc__)
         return 0 if command == "help" else 2
     app = App()
