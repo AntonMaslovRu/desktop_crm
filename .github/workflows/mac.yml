@@ -75,7 +75,15 @@ jobs:
           cd mac
           echo "$NOTARY_KEY_P8" > AuthKey.p8
           codesign --force --sign "Developer ID Application" --timestamp EnvoDesk.dmg
-          xcrun notarytool submit EnvoDesk.dmg --key AuthKey.p8 --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
+          # Apple иногда держит проверку часами; ждём полчаса, потом честно падаем с логом
+          xcrun notarytool submit EnvoDesk.dmg --key AuthKey.p8 --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER_ID" --wait --timeout 30m --output-format json | tee notary.json
+          ID=$(python3 -c "import json;print(json.load(open('notary.json'))['id'])")
+          STATUS=$(python3 -c "import json;print(json.load(open('notary.json')).get('status',''))")
+          if [ "$STATUS" != "Accepted" ]; then
+            xcrun notarytool log "$ID" --key AuthKey.p8 --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" || true
+            echo "нотаризация не принята: $STATUS"; exit 1
+          fi
           xcrun stapler staple EnvoDesk.dmg
           rm AuthKey.p8
 
