@@ -60,6 +60,7 @@ class App:
                                    self.settings.afisha_city)
         self.tg = Telegram(self.settings.telegram_token, self.settings.telegram_chat)
         self.transport = GraphTransport(self.settings.graph_tenant, self.settings.graph_client_id,
+                                        mailbox=self.settings.mail_from,
                                         cache_path=Path(self.settings.mail_cache))
 
     def sync(self, window_days: int = ingest.WINDOW_DAYS) -> None:
@@ -124,8 +125,9 @@ class App:
             print(seed.run(conn))
 
     def mail_login(self) -> None:
+        print("Входить нужно под", self.settings.mail_from, "— другой аккаунт будет отвергнут.")
         self.transport.login()
-        print("Вход выполнен, токен сохранён в", self.settings.mail_cache)
+        print("Вход выполнен под", self.transport.verify(), "· токен в", self.settings.mail_cache)
 
     def heartbeat(self) -> None:
         """Пинг внешнего сторожа. Молчание — сигнал снаружи, а не от упавшей программы."""

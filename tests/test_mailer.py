@@ -27,8 +27,21 @@ class TestQueue:
         assert queue(conn, kind="welcome") and queue(conn, kind="cart")
 
 
+def enable_mail(conn):
+    conn.execute("INSERT INTO kv (key, value) VALUES ('mail.hold_all', '0')"
+                 " ON CONFLICT (key) DO UPDATE SET value = '0'")
+
+
 class TestDispatch:
+    def test_fresh_database_sends_nothing(self, conn):
+        """Стоп-кран включён, пока человек его не снял: свежая база молчит."""
+        queue(conn)
+        transport = FakeTransport()
+        report = mailer.dispatch(conn, transport, now=DAY)
+        assert report.held == 1 and transport.sent == []
+
     def test_sends_by_day(self, conn):
+        enable_mail(conn)
         queue(conn)
         transport = FakeTransport()
         report = mailer.dispatch(conn, transport, now=DAY)
@@ -36,18 +49,21 @@ class TestDispatch:
         assert db.fetch_one(conn, "SELECT state FROM letters")["state"] == "sent"
 
     def test_waits_at_night(self, conn):
+        enable_mail(conn)
         queue(conn)
         transport = FakeTransport()
         report = mailer.dispatch(conn, transport, now=NIGHT)
         assert report.deferred_quiet == 1 and transport.sent == []
 
     def test_kill_switch_holds_everything(self, conn):
+        enable_mail(conn)
         queue(conn)
-        conn.execute("INSERT INTO kv (key, value) VALUES ('mail.hold_all', '1')")
+        conn.execute("UPDATE kv SET value = '1' WHERE key = 'mail.hold_all'")
         report = mailer.dispatch(conn, FakeTransport(), now=DAY)
         assert report.held == 1 and report.sent == 0
 
     def test_letter_already_in_sent_items_is_skipped(self, conn):
+        enable_mail(conn)
         queue(conn, ref="4419077")
         transport = FakeTransport(sent_before={"4419077"})
         report = mailer.dispatch(conn, transport, now=DAY)
@@ -55,6 +71,7 @@ class TestDispatch:
         assert db.fetch_one(conn, "SELECT state FROM letters")["state"] == "skipped"
 
     def test_rate_limit_per_minute(self, conn):
+        enable_mail(conn)
         for i in range(8):
             queue(conn, ref=str(i))
         report = mailer.dispatch(conn, FakeTransport(), now=DAY)
@@ -63,6 +80,7 @@ class TestDispatch:
         assert left == 8 - mailer.RATE_PER_MINUTE
 
     def test_transport_failure_keeps_letter_and_counts_attempt(self, conn):
+        enable_mail(conn)
         queue(conn)
         report = mailer.dispatch(conn, FakeTransport(fail=True), now=DAY)
         row = db.fetch_one(conn, "SELECT state, attempts, last_error FROM letters")
@@ -70,19 +88,22 @@ class TestDispatch:
         assert "почта недоступна" in row["last_error"]
 
     def test_gives_up_after_five_failures(self, conn):
+        enable_mail(conn)
         queue(conn)
         for _ in range(5):
             mailer.dispatch(conn, FakeTransport(fail=True), now=DAY)
         assert db.fetch_one(conn, "SELECT state FROM letters")["state"] == "failed"
 
     def test_sent_welcome_marks_the_order(self, conn):
+        enable_mail(conn)
         conn.execute("INSERT INTO orders (afisha_id, status) VALUES ('1', 'paid')")
         queue(conn, ref="1")
         mailer.dispatch(conn, FakeTransport(), now=DAY)
         assert db.fetch_one(conn, "SELECT welcome_sent_at FROM orders")["welcome_sent_at"]
 
 
-def paid_order(conn, *, email="a@b.ru", instructions="Билеты придут.", tickets=1, status="paid"):
+def paid_order(conn, *, email="a@b.ru", instructions="Билеты придут.", tickets=1, status="paid",
+               ordered_at="now() + interval '1 minute'"):
     event = db.fetch_one(
         conn,
         "INSERT INTO events (title, display_name, starts_at, letter_single, letter_multi)"
@@ -94,8 +115,8 @@ def paid_order(conn, *, email="a@b.ru", instructions="Билеты придут.
         (email or None,),
     )["id"]
     conn.execute(
-        "INSERT INTO orders (afisha_id, event_id, contact_id, status, tickets_count)"
-        " VALUES ('4419077', %s, %s, %s, %s)", (event, contact, status, tickets),
+        f"INSERT INTO orders (afisha_id, event_id, contact_id, status, tickets_count, ordered_at)"
+        f" VALUES ('4419077', %s, %s, %s, %s, {ordered_at})", (event, contact, status, tickets),
     )
     db.publish(conn, "order.created", {"order": "4419077"})
 
@@ -128,6 +149,19 @@ class TestWelcomeRule:
         paid_order(conn, instructions="")
         stats = welcome.process(conn)
         assert stats.queued == 0 and stats.no_instructions == ["UFC 333"]
+
+    def test_orders_before_first_run_are_never_welcomed(self, conn):
+        """История до запуска ядра принадлежит прежней автоматике — иначе дубли."""
+        paid_order(conn, ordered_at="now() - interval '2 days'")
+        stats = welcome.process(conn)
+        assert stats.queued == 0 and stats.skipped_old == 1
+        assert db.fetch_one(conn, "SELECT count(*) AS n FROM letters")["n"] == 0
+
+    def test_boundary_is_set_once(self, conn):
+        welcome.process(conn)
+        first = db.fetch_one(conn, "SELECT value FROM kv WHERE key = 'mail.welcome_since'")["value"]
+        welcome.process(conn)
+        assert db.fetch_one(conn, "SELECT value FROM kv WHERE key = 'mail.welcome_since'")["value"] == first
 
     def test_no_email_is_counted(self, conn):
         paid_order(conn, email="")

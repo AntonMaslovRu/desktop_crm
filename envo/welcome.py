@@ -21,10 +21,31 @@ class WelcomeStats:
     no_email: int = 0
     no_instructions: list[str] = field(default_factory=list)
     already: int = 0
+    skipped_old: int = 0  # заказы до запуска ядра — их обработала прежняя автоматика
+
+
+def _after_boundary(conn: psycopg.Connection, ordered_at) -> bool:
+    row = db.fetch_one(conn, "SELECT value::timestamptz AS t FROM kv WHERE key = 'mail.welcome_since'")
+    if row is None or ordered_at is None:
+        return False
+    return ordered_at >= row["t"]
+
+
+def since_key(conn: psycopg.Connection) -> None:
+    """Граница «с какого момента вэлкомы наши». Ставится один раз при первом прогоне.
+
+    Заказы старше границы уже обработала прежняя автоматика; писать по ним повторно —
+    значит слать дубли. Проверка по «Отправленным» остаётся, но второй линией, не первой.
+    """
+    conn.execute(
+        "INSERT INTO kv (key, value) VALUES ('mail.welcome_since', now()::text)"
+        " ON CONFLICT (key) DO NOTHING"
+    )
 
 
 def process(conn: psycopg.Connection, *, hold: bool = False) -> WelcomeStats:
     stats = WelcomeStats()
+    since_key(conn)
     pending = db.fetch_all(
         conn,
         """
@@ -50,6 +71,9 @@ def process(conn: psycopg.Connection, *, hold: bool = False) -> WelcomeStats:
             (item["afisha_id"],),
         )
         if order is None or order["status"] != "paid":
+            continue
+        if not _after_boundary(conn, order["ordered_at"]):
+            stats.skipped_old += 1
             continue
         if not order["email"]:
             stats.no_email += 1

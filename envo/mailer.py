@@ -76,8 +76,9 @@ def is_quiet(now: datetime, quiet_from: int = 21, quiet_to: int = 9) -> bool:
 
 
 def kill_switch_on(conn: psycopg.Connection) -> bool:
+    """Отправка выключена, пока человек явно не включил её. Свежая база — молчит."""
     row = db.fetch_one(conn, "SELECT value FROM kv WHERE key = 'mail.hold_all'")
-    return bool(row and row["value"] == "1")
+    return row is None or row["value"] != "0"
 
 
 def dispatch(

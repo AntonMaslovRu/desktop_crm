@@ -97,8 +97,9 @@ class TestScreens:
         assert client.post(f"/letters/{letter['id']}", json={"action": "skip"}, headers=h).status_code == 200
         assert client.post(f"/letters/{letter['id']}", json={"action": "release"}, headers=h).status_code == 409
 
-        assert client.post("/mail/hold-all", json={"on": True}, headers=h).json()["on"] is True
-        assert client.get("/overview", headers=h).json()["mail_hold_all"] is True
+        assert client.get("/overview", headers=h).json()["mail_hold_all"] is True, "по умолчанию — стоп"
+        assert client.post("/mail/hold-all", json={"on": False}, headers=h).json()["on"] is False
+        assert client.get("/overview", headers=h).json()["mail_hold_all"] is False
 
     def test_health_is_public(self, client):
         assert client.get("/health").status_code == 200

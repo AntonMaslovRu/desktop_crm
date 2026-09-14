@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 import psycopg
 
-from envo import db, money
+from envo import db, mailer, money
 from envo.config import MSK
 
 
@@ -219,8 +219,7 @@ def overview(conn: psycopg.Connection, period: int = 30, now: datetime | None = 
         "sell_through": sell_through(conn, now),
         "attention": attention(conn, now),
         "recent": recent_sales(conn),
-        "mail_hold_all": bool(db.fetch_one(conn, "SELECT value FROM kv WHERE key='mail.hold_all'")
-                              and db.fetch_one(conn, "SELECT value FROM kv WHERE key='mail.hold_all'")["value"] == "1"),
+        "mail_hold_all": mailer.kill_switch_on(conn),
     }
 
 

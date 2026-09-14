@@ -22,12 +22,16 @@ class GraphTransport:
         tenant: str,
         client_id: str,
         *,
+        mailbox: str,
         cache_path: Path,
         opener: Callable[[urllib.request.Request], bytes] | None = None,
         token: str | None = None,
     ) -> None:
+        if not mailbox or "@" not in mailbox:
+            raise ValueError("ENVO_MAIL_FROM не задан: не знаем, от чьего имени писать")
         self._tenant = tenant
         self._client_id = client_id
+        self.mailbox = mailbox.strip().lower()  # единственный ящик, от которого уходят письма
         self._cache_path = cache_path
         self._open = opener or self._fetch
         self._token = token  # для тестов; боевой берётся из msal
@@ -67,7 +71,29 @@ class GraphTransport:
         result = app.acquire_token_by_device_flow(flow)
         if "access_token" not in result:
             raise RuntimeError(result.get("error_description", "вход не удался"))
+        # Вошли не тем аккаунтом — токен не сохраняем. Письма уходят только с рабочего ящика.
+        who = self._whoami(result["access_token"])
+        if who != self.mailbox:
+            raise RuntimeError(
+                f"вход выполнен под {who}, а письма должны уходить с {self.mailbox}."
+                " Выйди и войди под рабочим ящиком."
+            )
         self._save(cache)
+
+    def _whoami(self, token: str) -> str:
+        request = urllib.request.Request(
+            GRAPH + "/me?$select=userPrincipalName,mail",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        )
+        me = json.loads(self._open(request).decode())
+        return (me.get("mail") or me.get("userPrincipalName") or "").strip().lower()
+
+    def verify(self) -> str:
+        """Кто сейчас за токеном. Отправка отказывается работать, если это не рабочий ящик."""
+        who = self._whoami(self.access_token())
+        if who != self.mailbox:
+            raise RuntimeError(f"токен принадлежит {who}, а не {self.mailbox}: отправка запрещена")
+        return who
 
     def access_token(self) -> str:
         if self._token:
@@ -93,7 +119,8 @@ class GraphTransport:
         return json.loads(raw.decode()) if raw else {}
 
     def send(self, to: str, subject: str, html: str) -> str:
-        self._request("POST", "/me/sendMail", {
+        self.verify()
+        self._request("POST", f"/users/{self.mailbox}/sendMail", {
             "message": {
                 "subject": subject,
                 "body": {"contentType": "HTML", "content": html},
@@ -107,6 +134,7 @@ class GraphTransport:
         """Страховка от старой рутины: письмо с номером заказа в теме уже уходило?"""
         query = urllib.parse.quote(f'"{marker}"')
         result = self._request(
-            "GET", f"/me/mailFolders/sentitems/messages?$search={query}&$top=3&$select=subject"
+            "GET",
+            f"/users/{self.mailbox}/mailFolders/sentitems/messages?$search={query}&$top=3&$select=subject",
         )
         return any(marker in (m.get("subject") or "") for m in result.get("value", []))

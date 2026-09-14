@@ -69,6 +69,7 @@ class TestLifecycle:
         ev, ct = event(conn), contact(conn)
         cart(conn, ev, ct, hours_ago=5, afisha_id="c1")
         carts.scan(conn, now=NOW)
+        conn.execute("INSERT INTO kv (key, value) VALUES ('mail.hold_all', '0')")
         mailer.dispatch(conn, FakeTransport(), now=NOW)
         assert carts.mark_sent(conn) == 1
         assert states(conn) == {"c1": "sent"}
