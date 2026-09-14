@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       HAS_CERT: ${{ secrets.MAC_CERT_P12 != '' }}
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app && xcodebuild -version
+        run: xcodebuild -version
 
       - name: XcodeGen
         run: brew install xcodegen create-dmg >/dev/null && cd mac && xcodegen generate
