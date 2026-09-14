@@ -13,6 +13,8 @@ CRM и мониторинг продаж билетов Envo: учёт зака�
 - [db/schema.sql](db/schema.sql) — схема базы
 - [docs/mockups/overview.html](docs/mockups/overview.html) — макет главного экрана
 - [docs/mockups/event.html](docs/mockups/event.html) — макет карточки события
+- [docs/DEPLOY.md](docs/DEPLOY.md) — сервер, DNS, секреты, сборка Mac-приложения
+- `mac/` — SwiftUI-приложение; проект генерируется XcodeGen, `.dmg` собирается в GitHub Actions
 
 ## Разработка
 
