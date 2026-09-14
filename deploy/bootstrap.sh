@@ -19,7 +19,7 @@ fi
 echo "== пользователь и каталоги =="
 id envo >/dev/null 2>&1 || useradd --system --home /var/lib/envo --shell /usr/sbin/nologin envo
 install -d -o envo -g envo -m 750 /var/lib/envo /var/lib/envo/files /var/backups/envo /opt/envo
-install -d -m 750 /etc/envo
+install -d -o root -g envo -m 750 /etc/envo   # envo должен входить в каталог, иначе EnvironmentFile не читается
 
 echo "== база =="
 sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='envo'" | grep -q 1 \
@@ -28,6 +28,7 @@ sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='envo'" | gre
   || sudo -u postgres createdb -O envo envo
 
 echo "== код =="
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true   # каталог принадлежит envo, скрипт идёт от root
 if [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" fetch -q origin "$BRANCH" && git -C "$APP_DIR" checkout -q "origin/$BRANCH"
 else
@@ -47,6 +48,15 @@ else
   echo "база не пустая, схему не трогаю"
 fi
 
+echo "== обёртка для ручных команд =="
+cat > /opt/envo/run <<'RUN'
+#!/usr/bin/env bash
+# /opt/envo/run envoctl <команда> — от пользователя envo с секретами из /etc/envo/env
+set -a; . /etc/envo/env; set +a
+exec sudo -u envo --preserve-env=$(cut -d= -f1 /etc/envo/env | grep -v '^#' | paste -sd, -) /opt/envo/venv/bin/"$@"
+RUN
+chmod 755 /opt/envo/run
+
 echo "== конфиг и служба =="
 if [ ! -f /etc/envo/env ]; then
   sed 's|^ENVO_DB_DSN=.*|ENVO_DB_DSN=postgresql://envo@/envo|' "$APP_DIR/.env.example" > /etc/envo/env
@@ -57,7 +67,7 @@ install -m 644 "$APP_DIR/deploy/envo.service" /etc/systemd/system/envo.service
 install -m 644 "$APP_DIR/deploy/envo-api.service" /etc/systemd/system/envo-api.service
 systemctl daemon-reload
 if [ -n "${ENVO_API_HOST:-}" ]; then
-  ENVO_API_HOST="$ENVO_API_HOST" envsubst < "$APP_DIR/deploy/Caddyfile" > /etc/caddy/Caddyfile
+  sed "s/__ENVO_API_HOST__/$ENVO_API_HOST/" "$APP_DIR/deploy/Caddyfile" > /etc/caddy/Caddyfile
   systemctl enable --now caddy && systemctl reload caddy
   echo "Caddy: https://$ENVO_API_HOST → API"
 else
@@ -65,13 +75,14 @@ else
 fi
 
 echo "== сеть =="
-sudo -u envo "$VENV/bin/envoctl" check
+sudo -u envo env ENVO_DB_DSN=postgresql://envo@/envo "$VENV/bin/envoctl" check
 
 cat <<MSG
 
-Готово. Дальше:
+Готово. Дальше (ручные команды читают секреты из /etc/envo/env — поэтому через env-обёртку):
   1) nano /etc/envo/env            — секреты
-  2) sudo -u envo $VENV/bin/envoctl mail-login
-  3) sudo -u envo $VENV/bin/envoctl user-add anton
-  4) systemctl enable --now envo envo-api && journalctl -u envo -f
+  2) /opt/envo/run envoctl mail-login
+  3) /opt/envo/run envoctl seed
+  4) /opt/envo/run envoctl user-add anton
+  5) systemctl enable --now envo envo-api && journalctl -u envo -f
 MSG

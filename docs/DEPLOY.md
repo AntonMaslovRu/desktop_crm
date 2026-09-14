@@ -21,9 +21,17 @@ systemd-служба `envo` под пользователем `envo`; секре
 публичный ключ — в GitHub → репозиторий → Settings → Deploy keys (только чтение). Тогда
 `ENVO_REPO=git@github.com:AntonMaslovRu/desktop_crm.git` для bootstrap.sh.
 
-## DNS
+## DNS и порты
 
-`api.envo.live` — A-запись на `185.50.203.184`. Caddy получит сертификат сам.
+`api.envo.live` — A-запись на `185.50.203.184`. В панели хостера открыть входящие
+**TCP 80 и 443** — иначе Let's Encrypt не достучится и Caddy не выпустит сертификат.
+
+## Что видно с сервера (проверено 14.09.2026)
+
+Афиша, ЦБ, Microsoft Graph — да. **api.telegram.org и news.google.com — нет**: российский
+датацентр. Поэтому алерты владельцу идут письмом через Graph, а Telegram доставляет
+Mac-приложение (с Mac эти адреса доступны). Лента новостей — через источники, доступные
+из РФ, либо через Mac-воркер.
 
 ## Порядок
 
@@ -31,11 +39,12 @@ systemd-служба `envo` под пользователем `envo`; секре
    Caddy, заводит пользователя, каталоги, базу и схему, виртуальное окружение, две службы
    (ядро и API) и TLS для API. Идемпотентен. Хост API должен A-записью смотреть на сервер.
 2. Заполнить `/etc/envo/env` по `.env.example`. Секреты — только новые, после ротации.
-3. `sudo -u envo /opt/envo/venv/bin/envoctl check` — шесть доменов должны ответить.
-4. `sudo -u envo /opt/envo/venv/bin/envoctl mail-login` — код на экране, вход в браузере
+3. `/opt/envo/run envoctl check` — обёртка подставляет секреты из `/etc/envo/env`
+   (systemd-шный `EnvironmentFile` ручным командам ничего не даёт).
+4. `/opt/envo/run envoctl mail-login` — код на экране, вход в браузере
    под support@envo.live. Один раз; токен в `/var/lib/envo/graph_token.json`.
-5. `sudo -u envo /opt/envo/venv/bin/envoctl seed` — справочник событий и ступени.
-6. `sudo -u envo /opt/envo/venv/bin/envoctl user-add anton` — пользователь приложения.
+5. `/opt/envo/run envoctl seed` — справочник событий и ступени.
+6. `/opt/envo/run envoctl user-add anton` — пользователь приложения.
 7. `sudo systemctl enable --now envo envo-api` — ядро стартует, проверяет сеть и пишет
    в Telegram; API слушает 127.0.0.1:8765 за Caddy.
 8. Параллельная работа с Cowork-рутинами: сутки для лестницы, трое суток для продаж,

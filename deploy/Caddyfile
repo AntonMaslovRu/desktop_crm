@@ -1,6 +1,6 @@
 # TLS для API: Caddy сам получает и продлевает сертификат. Нужна A-запись хоста на сервер.
-# Хост подставляется bootstrap.sh из ENVO_API_HOST.
-{$ENVO_API_HOST} {
+# Хост подставляется bootstrap.sh из ENVO_API_HOST через sed.
+__ENVO_API_HOST__ {
     reverse_proxy 127.0.0.1:8765
     encode gzip
     header {
