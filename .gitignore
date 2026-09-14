@@ -8,6 +8,13 @@ secrets.json
 config.local.*
 .env
 
+# сборка Python
+*.egg-info/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
 # сборка
 .build/
 .swiftpm/

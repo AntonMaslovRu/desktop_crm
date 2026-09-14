@@ -1,7 +1,8 @@
 # Развёртывание
 
 Сервер: виртуалка, Ubuntu/Debian, Postgres 15+, Python 3.11+. Ядро работает как
-systemd-служба `envo` под пользователем `envo`; секреты в `/etc/envo/env` с правами 600.
+systemd-служба `envo` под пользователем `envo`; секреты в `/etc/envo/env` — `640 root:envo`
+в каталоге `750 root:envo`, чтобы файл читали и служба, и обёртка `/opt/envo/run`.
 
 ## Идентификаторы (не секреты)
 
@@ -43,6 +44,10 @@ Mac-приложение (с Mac эти адреса доступны). Лент
    (systemd-шный `EnvironmentFile` ручным командам ничего не даёт).
 4. `/opt/envo/run envoctl mail-login` — код на экране, вход в браузере
    под support@envo.live. Один раз; токен в `/var/lib/envo/graph_token.json`.
+   **Под каким ящиком вошли, от того и уходят письма клиентам:** `graph.py` шлёт через
+   `/me/sendMail`, а `ENVO_MAIL_FROM` кодом не читается вообще. Войти не тем ящиком —
+   значит разослать вэлкомы с чужого адреса; проверить можно по `username` в
+   `/var/lib/envo/graph_token.json`.
 5. `/opt/envo/run envoctl seed` — справочник событий и ступени.
 6. `/opt/envo/run envoctl user-add anton` — пользователь приложения.
 7. `sudo systemctl enable --now envo envo-api` — ядро стартует, проверяет сеть и пишет

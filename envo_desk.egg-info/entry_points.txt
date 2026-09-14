@@ -1,2 +1,0 @@
-[console_scripts]
-envoctl = envo.cli:main
