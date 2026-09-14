@@ -75,16 +75,22 @@ jobs:
           cd mac
           echo "$NOTARY_KEY_P8" > AuthKey.p8
           codesign --force --sign "Developer ID Application" --timestamp EnvoDesk.dmg
-          # Apple иногда держит проверку часами; ждём полчаса, потом честно падаем с логом
+          # Очередь Apple бывает часами. Подписанный .dmg — уже результат, поэтому
+          # нотаризация здесь попытка, а не условие: не успела — выпускаем без неё.
+          set +e
           xcrun notarytool submit EnvoDesk.dmg --key AuthKey.p8 --key-id "$NOTARY_KEY_ID" \
-            --issuer "$NOTARY_ISSUER_ID" --wait --timeout 30m --output-format json | tee notary.json
-          ID=$(python3 -c "import json;print(json.load(open('notary.json'))['id'])")
-          STATUS=$(python3 -c "import json;print(json.load(open('notary.json')).get('status',''))")
-          if [ "$STATUS" != "Accepted" ]; then
-            xcrun notarytool log "$ID" --key AuthKey.p8 --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" || true
-            echo "нотаризация не принята: $STATUS"; exit 1
+            --issuer "$NOTARY_ISSUER_ID" --wait --timeout 25m --output-format json > notary.json 2>&1
+          STATUS=$(python3 -c 'import json;print(json.load(open("notary.json")).get("status",""))' 2>/dev/null || echo "")
+          set -e
+          cat notary.json
+          if [ "$STATUS" = "Accepted" ]; then
+            xcrun stapler staple EnvoDesk.dmg
+            echo "NOTARIZED=yes" >> "$GITHUB_ENV"
+            echo "Нотаризация пройдена: ставится обычным двойным кликом."
+          else
+            echo "NOTARIZED=no" >> "$GITHUB_ENV"
+            echo "::warning::Apple не подтвердила за 25 минут (status='$STATUS'). Выпускаем подписанный, но не нотаризованный .dmg — первый запуск через правый клик → «Открыть»."
           fi
-          xcrun stapler staple EnvoDesk.dmg
           rm AuthKey.p8
 
       - uses: actions/upload-artifact@v4
@@ -98,5 +104,8 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: Envo Desk · сборка ${{ github.run_number }}
+          body: |
+            Подпись: ${{ env.HAS_CERT == 'true' && 'Developer ID' || 'нет' }} · нотаризация: ${{ env.NOTARIZED || 'нет' }}
+            Если нотаризации нет — первый запуск через правый клик → «Открыть».
           files: mac/EnvoDesk.dmg
           prerelease: true
